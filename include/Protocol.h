@@ -9,6 +9,7 @@ struct ImpactPayload {
     uint32_t timestampMs;
     float peakDeceleration;
     uint8_t footSide;
+    uint32_t seqNum;  // Sequence number to detect lost packets
 };
 
 struct HeartbeatPayload {
@@ -18,4 +19,7 @@ struct HeartbeatPayload {
 
 #pragma pack(pop)
 
+#define IMPACT_TIMEOUT_MS 1500  // If impact older than 1.5s, reset (packet lost)
+
 #endif // PROTOCOL_H
+

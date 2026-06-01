@@ -5,12 +5,14 @@
 #include "../../lib/Network/INetworkManager.h"
 #include "../../lib/Algorithms/ImpactDetector.h"
 #include "../../include/Types.h"
+#include <cstdint>
 
 class AnkleApp {
 private:
     IImu* _imu;
     INetworkManager* _net;
     ImpactDetector _detector;
+    uint32_t _seqNum;
 
 public:
     AnkleApp(IImu* imu, INetworkManager* net);
@@ -19,3 +21,4 @@ public:
 };
 
 #endif // ANKLEAPP_H
+

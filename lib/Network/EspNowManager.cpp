@@ -16,9 +16,8 @@ void EspNowManager::onReceiveISR(const uint8_t* mac, const uint8_t* data, int le
     ImpactPayload payload;
     memcpy(&payload, data, sizeof(ImpactPayload));
 
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    xQueueSendFromISR(EspNowManager::_instance->_messageQueue, &payload, &xHigherPriorityTaskWoken);
-    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    // NOT an ISR context — it's WiFi task context, so use standard xQueueSend, not FromISR
+    xQueueSend(EspNowManager::_instance->_messageQueue, &payload, 0);
 }
 #endif
 
@@ -80,4 +79,5 @@ bool EspNowManager::getNextMessage(ImpactPayload* outPayload) {
     return xQueueReceive(_messageQueue, outPayload, 0) == pdTRUE;
 }
 #endif
+
 

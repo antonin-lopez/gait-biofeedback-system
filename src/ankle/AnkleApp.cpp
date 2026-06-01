@@ -2,9 +2,10 @@
 #include "../../include/Protocol.h"
 #include "../../include/AppConfig.h"
 #include "../../include/Types.h"
+#include <Arduino.h>
 
 AnkleApp::AnkleApp(IImu* imu, INetworkManager* net)
-    : _imu(imu), _net(net), _detector(IMPACT_DETECTION_THRESHOLD_G) {}
+    : _imu(imu), _net(net), _detector(IMPACT_DETECTION_THRESHOLD_G), _seqNum(0) {}
 
 void AnkleApp::setup() {
     if (_imu) _imu->init();
@@ -20,8 +21,9 @@ void AnkleApp::loop() {
     float outPeak = 0.0f;
     if (_detector.processSample(accelZ, outPeak)) {
         ImpactPayload payload;
-        payload.timestampMs = 0; // Peut être défini avec millis() sur ESP32
+        payload.timestampMs = millis();
         payload.peakDeceleration = outPeak;
+        payload.seqNum = _seqNum++;
 
 #ifdef IS_LEFT_ANKLE
         payload.footSide = (uint8_t)FootSide::LEFT;
@@ -29,8 +31,8 @@ void AnkleApp::loop() {
         payload.footSide = (uint8_t)FootSide::RIGHT;
 #endif
 
-        // Envoi au poignet (adresse de broadcast ou adresse connue)
         uint8_t wristMac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
         _net->send(wristMac, (uint8_t*)&payload, sizeof(payload));
     }
 }
+

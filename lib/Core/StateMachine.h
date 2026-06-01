@@ -17,19 +17,20 @@ class StateMachine : public IStateMachine {
 private:
     IState* _currentState;
 
-    ReposState* _reposState;
-    DiagnosticState* _diagnosticState;
-    CalibrationState* _calibrationState;
-    CourseNormalState* _courseNormalState;
-    CourseAlerteState* _courseAlerteState;
-    PauseState* _pauseState;
+    ReposState& _reposState;
+    DiagnosticState& _diagnosticState;
+    CalibrationState& _calibrationState;
+    CourseNormalState& _courseNormalState;
+    CourseAlerteState& _courseAlerteState;
+    PauseState& _pauseState;
 
     bool _transitionRequested;
     SystemState _requestedState;
 
 public:
-    StateMachine();
-    ~StateMachine();
+    StateMachine(ReposState& repos, DiagnosticState& diagnostic, CalibrationState& calibration,
+                 CourseNormalState& courseNormal, CourseAlerteState& courseAlerte, PauseState& pause);
+    ~StateMachine() = default;
 
     void requestTransition(SystemState target) override;
     SystemState getCurrentState() const override;
@@ -42,3 +43,4 @@ private:
 };
 
 #endif // STATEMACHINE_H
+

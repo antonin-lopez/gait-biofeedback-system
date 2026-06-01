@@ -2,25 +2,12 @@
 #include "WristStatesImpl.h"
 #include "../../include/AppConfig.h"
 
-StateMachine::StateMachine()
-    : _transitionRequested(false), _requestedState(SystemState::REPOS) {
-    _reposState = new ReposState();
-    _diagnosticState = new DiagnosticState();
-    _calibrationState = new CalibrationState();
-    _courseNormalState = new CourseNormalState();
-    _courseAlerteState = new CourseAlerteState();
-    _pauseState = new PauseState();
-
-    _currentState = _reposState;
-}
-
-StateMachine::~StateMachine() {
-    delete _reposState;
-    delete _diagnosticState;
-    delete _calibrationState;
-    delete _courseNormalState;
-    delete _courseAlerteState;
-    delete _pauseState;
+StateMachine::StateMachine(ReposState& repos, DiagnosticState& diagnostic, CalibrationState& calibration,
+                           CourseNormalState& courseNormal, CourseAlerteState& courseAlerte, PauseState& pause)
+    : _reposState(repos), _diagnosticState(diagnostic), _calibrationState(calibration),
+      _courseNormalState(courseNormal), _courseAlerteState(courseAlerte), _pauseState(pause),
+      _transitionRequested(false), _requestedState(SystemState::REPOS) {
+    _currentState = &_reposState;
 }
 
 void StateMachine::requestTransition(SystemState target) {
@@ -35,19 +22,19 @@ SystemState StateMachine::getCurrentState() const {
 IState* StateMachine::getStateInstance(SystemState state) {
     switch (state) {
         case SystemState::REPOS:
-            return _reposState;
+            return &_reposState;
         case SystemState::DIAGNOSTIC:
-            return _diagnosticState;
+            return &_diagnosticState;
         case SystemState::CALIBRATION:
-            return _calibrationState;
+            return &_calibrationState;
         case SystemState::COURSE_NORMAL:
-            return _courseNormalState;
+            return &_courseNormalState;
         case SystemState::COURSE_ALERTE:
-            return _courseAlerteState;
+            return &_courseAlerteState;
         case SystemState::PAUSE:
-            return _pauseState;
+            return &_pauseState;
         default:
-            return _reposState;
+            return &_reposState;
     }
 }
 
@@ -73,3 +60,4 @@ void StateMachine::update(IFeedback* ui, bool btnShort, bool btnLong, float asym
         _transitionRequested = false;
     }
 }
+

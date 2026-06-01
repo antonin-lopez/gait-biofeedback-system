@@ -17,7 +17,7 @@ StateMachine::StateMachine(ReposState& repos, DiagnosticState& diagnostic, Calib
 }
 
 void StateMachine::requestTransition(AppState* target) {
-    if (!target || !isTransitionAllowed(currentState_, target)) {
+    if (!target || target == currentState_) {
         return;
     }
 
@@ -27,40 +27,6 @@ void StateMachine::requestTransition(AppState* target) {
 
 SystemState StateMachine::getCurrentState() const {
     return currentState_ ? currentState_->getStateType() : SystemState::REPOS;
-}
-
-bool StateMachine::isTransitionAllowed(AppState* from, AppState* to) {
-    if (!from || !to || from == to) {
-        return false;
-    }
-
-    const SystemState fromState = from->getStateType();
-    const SystemState toState = to->getStateType();
-
-    switch (fromState) {
-        case SystemState::REPOS:
-            return toState == SystemState::DIAGNOSTIC || toState == SystemState::CALIBRATION;
-
-        case SystemState::DIAGNOSTIC:
-            return toState == SystemState::REPOS || toState == SystemState::CALIBRATION;
-
-        case SystemState::CALIBRATION:
-            return toState == SystemState::REPOS || toState == SystemState::COURSE_NORMAL;
-
-        case SystemState::COURSE_NORMAL:
-            return toState == SystemState::PAUSE || toState == SystemState::REPOS ||
-                   toState == SystemState::COURSE_ALERTE;
-
-        case SystemState::COURSE_ALERTE:
-            return toState == SystemState::PAUSE || toState == SystemState::REPOS ||
-                   toState == SystemState::COURSE_NORMAL;
-
-        case SystemState::PAUSE:
-            return toState == SystemState::COURSE_NORMAL || toState == SystemState::REPOS;
-
-        default:
-            return false;
-    }
 }
 
 void StateMachine::performTransition(AppState* nextState, Feedback& ui) {

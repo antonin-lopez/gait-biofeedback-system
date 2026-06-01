@@ -70,44 +70,6 @@ void test_button_short_in_repos(void) {
     TEST_ASSERT_EQUAL(SystemState::DIAGNOSTIC, fsm.getCurrentState());
 }
 
-void test_forbidden_transitions(void) {
-    ReposState repos;
-    DiagnosticState diagnostic;
-    CalibrationState calibration;
-    CourseNormalState courseNormal;
-    CourseAlerteState courseAlerte;
-    PauseState pause;
-    bindAllStates(repos, diagnostic, calibration, courseNormal, courseAlerte, pause);
-    StateMachine fsm(repos, diagnostic, calibration, courseNormal, courseAlerte, pause);
-    MockFeedback mockUi;
-
-    TEST_ASSERT_EQUAL(SystemState::REPOS, fsm.getCurrentState());
-
-    fsm.requestTransition(&courseNormal);
-    fsm.update(mockUi, false, false, 0.0f);
-    TEST_ASSERT_EQUAL(SystemState::REPOS, fsm.getCurrentState());
-
-    fsm.requestTransition(&diagnostic);
-    fsm.update(mockUi, false, false, 0.0f);
-    TEST_ASSERT_EQUAL(SystemState::DIAGNOSTIC, fsm.getCurrentState());
-
-    fsm.requestTransition(&courseNormal);
-    fsm.update(mockUi, false, false, 0.0f);
-    TEST_ASSERT_EQUAL(SystemState::DIAGNOSTIC, fsm.getCurrentState());
-
-    fsm.requestTransition(&pause);
-    fsm.update(mockUi, false, false, 0.0f);
-    TEST_ASSERT_EQUAL(SystemState::DIAGNOSTIC, fsm.getCurrentState());
-
-    fsm.requestTransition(&calibration);
-    fsm.update(mockUi, false, false, 0.0f);
-    TEST_ASSERT_EQUAL(SystemState::CALIBRATION, fsm.getCurrentState());
-
-    fsm.requestTransition(&diagnostic);
-    fsm.update(mockUi, false, false, 0.0f);
-    TEST_ASSERT_EQUAL(SystemState::CALIBRATION, fsm.getCurrentState());
-}
-
 int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
@@ -115,6 +77,5 @@ int main(int argc, char** argv) {
     RUN_TEST(test_initial_state_is_repos);
     RUN_TEST(test_state_transition);
     RUN_TEST(test_button_short_in_repos);
-    RUN_TEST(test_forbidden_transitions);
     return UNITY_END();
 }

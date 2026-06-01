@@ -6,11 +6,12 @@ void M5Board::init() {
     M5.begin(cfg);
 }
 
-bool M5Board::isButtonPressed() {
-    return M5.BtnA.wasPressed();
+bool M5Board::isButtonPressed() const {
+    M5.update();
+    return M5.BtnA.isPressed();
 }
 
-uint8_t M5Board::getBatteryLevel() {
+uint8_t M5Board::getBatteryLevel() const {
     return M5.Power.getBatteryLevel();
 }
 

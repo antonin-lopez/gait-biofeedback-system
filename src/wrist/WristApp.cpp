@@ -15,7 +15,10 @@ WristApp::WristApp(Board& board, Feedback& feedback, NetworkManager& network)
       lastRightImpactTime_(0),
       currentAsymmetry_(0.0f),
       lastButtonTime_(0),
-      buttonPressed_(false),
+      debouncedPressed_(false),
+      lastRawPressed_(false),
+      lastDebounceChangeMs_(0),
+      longPressEmitted_(false),
       previousFsmState_(SystemState::REPOS),
       ledRestoreAt_(0),
       ledBasePattern_(FeedbackColor::ORANGE_BREATH),
@@ -139,6 +142,39 @@ bool WristApp::isAbsoluteThresholdMet(float left, float right) const {
     return (left > MIN_IMPACT_FORCE_G && right > MIN_IMPACT_FORCE_G);
 }
 
+void WristApp::pollButton(bool& btnShort, bool& btnLong) {
+    btnShort = false;
+    btnLong = false;
+
+    const bool rawPressed = board_.isButtonPressed();
+    const uint32_t now = millis();
+
+    if (rawPressed != lastRawPressed_) {
+        lastDebounceChangeMs_ = now;
+        lastRawPressed_ = rawPressed;
+    }
+
+    if ((now - lastDebounceChangeMs_) >= DEBOUNCE_DELAY_MS && rawPressed != debouncedPressed_) {
+        debouncedPressed_ = rawPressed;
+
+        if (debouncedPressed_) {
+            lastButtonTime_ = now;
+            longPressEmitted_ = false;
+        } else {
+            const uint32_t holdMs = now - lastButtonTime_;
+            if (!longPressEmitted_ && holdMs >= DEBOUNCE_DELAY_MS && holdMs < BUTTON_LONG_PRESS_MS) {
+                btnShort = true;
+            }
+        }
+    }
+
+    if (debouncedPressed_ && !longPressEmitted_ &&
+        (now - lastButtonTime_) >= BUTTON_LONG_PRESS_MS) {
+        btnLong = true;
+        longPressEmitted_ = true;
+    }
+}
+
 void WristApp::loop() {
     ImpactPayload incoming;
     while (network_.getNextMessage(incoming)) {
@@ -147,18 +183,7 @@ void WristApp::loop() {
 
     bool btnShort = false;
     bool btnLong = false;
-
-    if (board_.isButtonPressed()) {
-        if (!buttonPressed_) {
-            buttonPressed_ = true;
-            lastButtonTime_ = 0;
-        }
-    } else {
-        if (buttonPressed_) {
-            buttonPressed_ = false;
-            btnShort = true;
-        }
-    }
+    pollButton(btnShort, btnLong);
 
     if (!isImpactValid(lastLeftImpactTime_)) {
         lastLeftImpact_ = 0.0f;

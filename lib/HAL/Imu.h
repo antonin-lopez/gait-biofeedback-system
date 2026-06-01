@@ -6,6 +6,6 @@ public:
     virtual ~Imu() = default;
     virtual bool init() = 0;
     virtual void update() = 0;
-    virtual float getAccelerationZ() = 0;
-    virtual float getAccelerationMagnitude() = 0;
+    virtual float getAccelerationZ() const = 0;
+    virtual float getAccelerationMagnitude() const = 0;
 };

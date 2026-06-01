@@ -9,11 +9,11 @@ bool MockImu::init() {
 
 void MockImu::update() {}
 
-float MockImu::getAccelerationZ() {
+float MockImu::getAccelerationZ() const {
     return accelZ_;
 }
 
-float MockImu::getAccelerationMagnitude() {
+float MockImu::getAccelerationMagnitude() const {
     return std::sqrt(accelX_ * accelX_ + accelY_ * accelY_ + accelZ_ * accelZ_);
 }
 

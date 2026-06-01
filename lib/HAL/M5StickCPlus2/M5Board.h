@@ -5,7 +5,7 @@
 class M5Board : public Board {
 public:
     void init() override;
-    bool isButtonPressed() override;
-    uint8_t getBatteryLevel() override;
+    bool isButtonPressed() const override;
+    uint8_t getBatteryLevel() const override;
     void sleep(uint32_t durationMs) override;
 };

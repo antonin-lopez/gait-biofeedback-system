@@ -37,8 +37,6 @@ public:
 
     void update(Feedback& ui, bool btnShort, bool btnLong, float asymmetry);
 
-    static bool isTransitionAllowed(AppState* from, AppState* to);
-
 private:
     void performTransition(AppState* nextState, Feedback& ui);
 };

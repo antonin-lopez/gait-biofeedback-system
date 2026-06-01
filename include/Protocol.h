@@ -4,7 +4,6 @@
 
 // Charge utile d'impact (structure logique ; le fil utilise ProtocolCodec).
 struct ImpactPayload {
-    uint32_t timestampMs;
     float peakDeceleration;
     uint8_t footSide;
     uint32_t seqNum;  // Numéro de séquence pour détecter les paquets perdus

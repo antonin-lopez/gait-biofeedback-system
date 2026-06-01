@@ -2,11 +2,11 @@
 
 void MockBoard::init() {}
 
-bool MockBoard::isButtonPressed() {
+bool MockBoard::isButtonPressed() const {
     return simulatedButtonPressed_;
 }
 
-uint8_t MockBoard::getBatteryLevel() {
+uint8_t MockBoard::getBatteryLevel() const {
     return simulatedBatteryLevel_;
 }
 

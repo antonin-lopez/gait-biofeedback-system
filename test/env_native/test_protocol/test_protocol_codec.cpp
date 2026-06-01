@@ -8,7 +8,6 @@ void tearDown(void) {}
 
 void test_impact_payload_roundtrip(void) {
     ImpactPayload original;
-    original.timestampMs = 123456789u;
     original.peakDeceleration = 4.25f;
     original.footSide = static_cast<uint8_t>(1);
     original.seqNum = 42u;
@@ -20,7 +19,6 @@ void test_impact_payload_roundtrip(void) {
     ImpactPayload decoded;
     TEST_ASSERT_TRUE(deserializeImpactPayload(wire, written, decoded));
 
-    TEST_ASSERT_EQUAL_UINT32(original.timestampMs, decoded.timestampMs);
     TEST_ASSERT_EQUAL_FLOAT(original.peakDeceleration, decoded.peakDeceleration);
     TEST_ASSERT_EQUAL_UINT8(original.footSide, decoded.footSide);
     TEST_ASSERT_EQUAL_UINT32(original.seqNum, decoded.seqNum);

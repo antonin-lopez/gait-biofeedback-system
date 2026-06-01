@@ -11,6 +11,6 @@ private:
 public:
     bool init() override;
     void update() override;
-    float getAccelerationZ() override;
-    float getAccelerationMagnitude() override;
+    float getAccelerationZ() const override;
+    float getAccelerationMagnitude() const override;
 };

@@ -3,15 +3,41 @@
 
 namespace {
 
-// Conversion big-endian explicite (indépendante de l'endianness de la cible).
+static_assert(sizeof(float) == sizeof(uint32_t), "Float size mismatch");
+
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
 uint32_t hostToNetwork32(uint32_t value) {
+    return value;
+}
+uint32_t networkToHost32(uint32_t value) {
+    return value;
+}
+#elif defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+uint32_t hostToNetwork32(uint32_t value) {
+#if defined(__GNUC__) || defined(__clang__)
+    return __builtin_bswap32(value);
+#else
     return ((value & 0x000000FFu) << 24) | ((value & 0x0000FF00u) << 8) |
            ((value & 0x00FF0000u) >> 8) | ((value & 0xFF000000u) >> 24);
+#endif
 }
-
 uint32_t networkToHost32(uint32_t value) {
     return hostToNetwork32(value);
 }
+#else
+// ESP32, Windows et la plupart des cibles de test native sont little-endian.
+uint32_t hostToNetwork32(uint32_t value) {
+#if defined(__GNUC__) || defined(__clang__)
+    return __builtin_bswap32(value);
+#else
+    return ((value & 0x000000FFu) << 24) | ((value & 0x0000FF00u) << 8) |
+           ((value & 0x00FF0000u) >> 8) | ((value & 0xFF000000u) >> 24);
+#endif
+}
+uint32_t networkToHost32(uint32_t value) {
+    return hostToNetwork32(value);
+}
+#endif
 
 void writeUint32BE(uint8_t* buffer, uint32_t value) {
     const uint32_t networkValue = hostToNetwork32(value);
@@ -44,10 +70,9 @@ size_t serializeImpactPayload(const ImpactPayload& payload, uint8_t* buffer, siz
         return 0;
     }
 
-    writeUint32BE(buffer, payload.timestampMs);
-    writeUint32BE(buffer + 4, floatToNetworkBits(payload.peakDeceleration));
-    buffer[8] = payload.footSide;
-    writeUint32BE(buffer + 9, payload.seqNum);
+    writeUint32BE(buffer, floatToNetworkBits(payload.peakDeceleration));
+    buffer[4] = payload.footSide;
+    writeUint32BE(buffer + 5, payload.seqNum);
 
     return IMPACT_PAYLOAD_WIRE_SIZE;
 }
@@ -57,10 +82,9 @@ bool deserializeImpactPayload(const uint8_t* buffer, size_t length, ImpactPayloa
         return false;
     }
 
-    out.timestampMs = readUint32BE(buffer);
-    out.peakDeceleration = networkBitsToFloat(readUint32BE(buffer + 4));
-    out.footSide = buffer[8];
-    out.seqNum = readUint32BE(buffer + 9);
+    out.peakDeceleration = networkBitsToFloat(readUint32BE(buffer));
+    out.footSide = buffer[4];
+    out.seqNum = readUint32BE(buffer + 5);
 
     return true;
 }

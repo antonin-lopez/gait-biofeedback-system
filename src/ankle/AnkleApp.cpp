@@ -19,9 +19,8 @@ void AnkleApp::loop() {
     const float accelZ = imu_.getAccelerationZ();
 
     float outPeak = 0.0f;
-    if (detector_.processSample(accelZ, outPeak)) {
+    if (detector_.processSample(accelZ, millis(), outPeak)) {
         ImpactPayload payload;
-        payload.timestampMs = millis();
         payload.peakDeceleration = outPeak;
         payload.seqNum = seqNum_++;
 

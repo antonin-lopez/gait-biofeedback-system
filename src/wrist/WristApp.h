@@ -31,7 +31,10 @@ private:
     uint32_t lastRightImpactTime_;
     float currentAsymmetry_;
     uint32_t lastButtonTime_;
-    bool buttonPressed_;
+    bool debouncedPressed_;
+    bool lastRawPressed_;
+    uint32_t lastDebounceChangeMs_;
+    bool longPressEmitted_;
     SystemState previousFsmState_;
     uint32_t ledRestoreAt_;
     FeedbackColor ledBasePattern_;
@@ -46,6 +49,7 @@ private:
     void handleCalibrationTimeout();
     bool isImpactValid(uint32_t impactTime) const;
     bool isAbsoluteThresholdMet(float left, float right) const;
+    void pollButton(bool& btnShort, bool& btnLong);
 
 public:
     WristApp(Board& board, Feedback& feedback, NetworkManager& network);

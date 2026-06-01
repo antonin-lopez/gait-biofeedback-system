@@ -1,7 +1,7 @@
 #include <Arduino.h>
-#include "../../lib/HAL/M5StickCPlus2/M5Board.h"
-#include "../../lib/HAL/M5StickCPlus2/M5Feedback.h"
-#include "../../lib/network/EspNowManager.h"
+#include "M5Board.h"
+#include "M5Feedback.h"
+#include "EspNowManager.h"
 #include "WristApp.h"
 
 M5Board realBoard;

@@ -6,8 +6,8 @@
 class StateMachineInterface;
 class Feedback;
 
-// --- REPOS (veille) ---
-class ReposState : public AppState {
+// --- IDLE (veille) ---
+class IdleState : public AppState {
 private:
     AppState* diagnosticTarget_ = nullptr;
     AppState* calibrationTarget_ = nullptr;
@@ -17,17 +17,17 @@ public:
     void onEnter(StateMachineInterface* fsm, Feedback& ui) override;
     void execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) override;
     void onExit(StateMachineInterface* fsm, Feedback& ui) override;
-    SystemState getStateType() const override { return SystemState::REPOS; }
+    SystemState getStateType() const override { return SystemState::IDLE; }
 };
 
 // --- DIAGNOSTIC ---
 class DiagnosticState : public AppState {
 private:
-    AppState* reposTarget_ = nullptr;
+    AppState* idleTarget_ = nullptr;
     AppState* calibrationTarget_ = nullptr;
 
 public:
-    void bindTargets(AppState* repos, AppState* calibration);
+    void bindTargets(AppState* idle, AppState* calibration);
     void onEnter(StateMachineInterface* fsm, Feedback& ui) override;
     void execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) override;
     void onExit(StateMachineInterface* fsm, Feedback& ui) override;
@@ -37,55 +37,55 @@ public:
 // --- CALIBRATION ---
 class CalibrationState : public AppState {
 private:
-    AppState* reposTarget_ = nullptr;
-    AppState* courseNormalTarget_ = nullptr;
+    AppState* idleTarget_ = nullptr;
+    AppState* runningNormalTarget_ = nullptr;
 
 public:
-    void bindTargets(AppState* repos, AppState* courseNormal);
+    void bindTargets(AppState* idle, AppState* runningNormal);
     void onEnter(StateMachineInterface* fsm, Feedback& ui) override;
     void execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) override;
     void onExit(StateMachineInterface* fsm, Feedback& ui) override;
     SystemState getStateType() const override { return SystemState::CALIBRATION; }
 };
 
-// --- COURSE_NORMAL ---
-class CourseNormalState : public AppState {
+// --- RUNNING_NORMAL ---
+class RunningNormalState : public AppState {
 private:
     AppState* pauseTarget_ = nullptr;
-    AppState* reposTarget_ = nullptr;
-    AppState* alerteTarget_ = nullptr;
+    AppState* idleTarget_ = nullptr;
+    AppState* runningAlertTarget_ = nullptr;
 
 public:
-    void bindTargets(AppState* pause, AppState* repos, AppState* alerte);
+    void bindTargets(AppState* pause, AppState* idle, AppState* runningAlert);
     void onEnter(StateMachineInterface* fsm, Feedback& ui) override;
     void execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) override;
     void onExit(StateMachineInterface* fsm, Feedback& ui) override;
-    SystemState getStateType() const override { return SystemState::COURSE_NORMAL; }
+    SystemState getStateType() const override { return SystemState::RUNNING_NORMAL; }
 };
 
-// --- COURSE_ALERTE ---
-class CourseAlerteState : public AppState {
+// --- RUNNING_ALERT ---
+class RunningAlertState : public AppState {
 private:
     AppState* pauseTarget_ = nullptr;
-    AppState* reposTarget_ = nullptr;
-    AppState* courseNormalTarget_ = nullptr;
+    AppState* idleTarget_ = nullptr;
+    AppState* runningNormalTarget_ = nullptr;
 
 public:
-    void bindTargets(AppState* pause, AppState* repos, AppState* courseNormal);
+    void bindTargets(AppState* pause, AppState* idle, AppState* runningNormal);
     void onEnter(StateMachineInterface* fsm, Feedback& ui) override;
     void execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) override;
     void onExit(StateMachineInterface* fsm, Feedback& ui) override;
-    SystemState getStateType() const override { return SystemState::COURSE_ALERTE; }
+    SystemState getStateType() const override { return SystemState::RUNNING_ALERT; }
 };
 
 // --- PAUSE ---
 class PauseState : public AppState {
 private:
-    AppState* courseNormalTarget_ = nullptr;
-    AppState* reposTarget_ = nullptr;
+    AppState* runningNormalTarget_ = nullptr;
+    AppState* idleTarget_ = nullptr;
 
 public:
-    void bindTargets(AppState* courseNormal, AppState* repos);
+    void bindTargets(AppState* runningNormal, AppState* idle);
     void onEnter(StateMachineInterface* fsm, Feedback& ui) override;
     void execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) override;
     void onExit(StateMachineInterface* fsm, Feedback& ui) override;

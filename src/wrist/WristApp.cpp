@@ -1,14 +1,38 @@
 #include "WristApp.h"
-#include "../../include/AppConfig.h"
+#include "AppConfig.h"
 #include <Arduino.h>
+#include <esp_system.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+
+namespace {
+
+const char* systemStateLabel(SystemState state) {
+    switch (state) {
+        case SystemState::IDLE:
+            return "IDLE";
+        case SystemState::DIAGNOSTIC:
+            return "DIAGNOSTIC";
+        case SystemState::CALIBRATION:
+            return "CALIBRATION";
+        case SystemState::RUNNING_NORMAL:
+            return "RUNNING";
+        case SystemState::RUNNING_ALERT:
+            return "ALERT";
+        case SystemState::PAUSE:
+            return "PAUSE";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+}  // namespace
 
 WristApp::WristApp(Board& board, Feedback& feedback, NetworkManager& network)
     : board_(board),
       feedback_(feedback),
       network_(network),
-      fsm_(reposState_, diagnosticState_, calibrationState_, courseNormalState_, courseAlerteState_,
+      fsm_(idleState_, diagnosticState_, calibrationState_, runningNormalState_, runningAlertState_,
             pauseState_),
       lastLeftImpact_(0.0f),
       lastRightImpact_(0.0f),
@@ -22,7 +46,7 @@ WristApp::WristApp(Board& board, Feedback& feedback, NetworkManager& network)
       lastRawPressed_(false),
       lastDebounceChangeMs_(0),
       longPressEmitted_(false),
-      previousFsmState_(SystemState::REPOS),
+      previousFsmState_(SystemState::IDLE),
       ledRestoreAt_(0),
       ledBasePattern_(FeedbackColor::ORANGE_BREATH),
       lastCalibrationActivityMs_(0) {
@@ -30,24 +54,25 @@ WristApp::WristApp(Board& board, Feedback& feedback, NetworkManager& network)
 }
 
 void WristApp::bindStateTargets() {
-    reposState_.bindTargets(&diagnosticState_, &calibrationState_);
-    diagnosticState_.bindTargets(&reposState_, &calibrationState_);
-    calibrationState_.bindTargets(&reposState_, &courseNormalState_);
-    courseNormalState_.bindTargets(&pauseState_, &reposState_, &courseAlerteState_);
-    courseAlerteState_.bindTargets(&pauseState_, &reposState_, &courseNormalState_);
-    pauseState_.bindTargets(&courseNormalState_, &reposState_);
+    idleState_.bindTargets(&diagnosticState_, &calibrationState_);
+    diagnosticState_.bindTargets(&idleState_, &calibrationState_);
+    calibrationState_.bindTargets(&idleState_, &runningNormalState_);
+    runningNormalState_.bindTargets(&pauseState_, &idleState_, &runningAlertState_);
+    runningAlertState_.bindTargets(&pauseState_, &idleState_, &runningNormalState_);
+    pauseState_.bindTargets(&runningNormalState_, &idleState_);
 }
 
-void WristApp::enterHardwareFaultLoop() {
-    while (true) {
+void WristApp::handleHardwareInitFailure() {
+    for (int i = 0; i < 15; ++i) {
         feedback_.setLedPattern(FeedbackColor::RED_FLASH);
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
+    esp_restart();
 }
 
 void WristApp::setup() {
     if (!board_.init() || !network_.init()) {
-        enterHardwareFaultLoop();
+        handleHardwareInitFailure();
     }
 }
 
@@ -64,18 +89,18 @@ void WristApp::onStateEntered(SystemState entered, SystemState previous) {
             ledBasePattern_ = FeedbackColor::WHITE_FIXED;
             break;
 
-        case SystemState::REPOS:
+        case SystemState::IDLE:
             if (previous == SystemState::CALIBRATION) {
                 analyzer_.resetCalibration();
             }
             ledBasePattern_ = FeedbackColor::ORANGE_BREATH;
             break;
 
-        case SystemState::COURSE_NORMAL:
+        case SystemState::RUNNING_NORMAL:
             ledBasePattern_ = FeedbackColor::GREEN_FIXED;
             break;
 
-        case SystemState::COURSE_ALERTE:
+        case SystemState::RUNNING_ALERT:
             ledBasePattern_ = FeedbackColor::RED_FLASH;
             break;
 
@@ -86,6 +111,11 @@ void WristApp::onStateEntered(SystemState entered, SystemState previous) {
         default:
             break;
     }
+}
+
+void WristApp::updateDisplayForState(SystemState state) {
+    feedback_.showStatusLine(systemStateLabel(state));
+    feedback_.showAsymmetryPercent(currentAsymmetry_);
 }
 
 void WristApp::pulseLed(FeedbackColor flashColor, FeedbackColor basePattern, uint32_t durationMs) {
@@ -124,7 +154,7 @@ void WristApp::processCalibrationImpact(float peak, uint8_t side) {
     pulseLed(FeedbackColor::SCREEN_BLANK, FeedbackColor::BLUE_FLASH, CALIBRATION_LED_PULSE_MS);
 
     if (completed) {
-        fsm_.requestTransition(&courseNormalState_);
+        fsm_.requestTransition(&runningNormalState_);
     }
 }
 
@@ -138,7 +168,7 @@ void WristApp::handleCalibrationTimeout() {
     }
 
     if ((millis() - lastCalibrationActivityMs_) > CALIBRATION_TIMEOUT_MS) {
-        fsm_.requestTransition(&reposState_);
+        fsm_.requestTransition(&idleState_);
     }
 }
 
@@ -233,7 +263,7 @@ void WristApp::loop() {
         previousFsmState_ = newState;
     }
 
-    feedback_.updateDisplay(newState, currentAsymmetry_);
+    updateDisplayForState(newState);
     restoreLedIfNeeded();
 
     vTaskDelay(pdMS_TO_TICKS(LOOP_PERIOD_MS));

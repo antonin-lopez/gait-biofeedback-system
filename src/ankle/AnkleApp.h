@@ -1,12 +1,11 @@
 #pragma once
 
-#include "../../lib/HAL/Imu.h"
-#include "../../lib/network/NetworkManager.h"
-#include "../../lib/algorithms/ImpactDetector.h"
-#include "../../include/Types.h"
+#include "Imu.h"
+#include "NetworkManager.h"
+#include "ImpactDetector.h"
+#include "Types.h"
 #include <cstdint>
 
-// Application cheville (émetteur d'impacts vers le poignet).
 class AnkleApp {
 private:
     Imu& imu_;

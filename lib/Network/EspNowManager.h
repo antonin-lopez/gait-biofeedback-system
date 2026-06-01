@@ -12,12 +12,11 @@
 // Gestionnaire ESP-NOW (réception via file FreeRTOS, pas en ISR matérielle).
 class EspNowManager : public NetworkManager {
 private:
-    static EspNowManager* instance_;
+    static EspNowManager* activeInstance_;
     ReceiveCallback receiveCallback_;
 
 #ifdef TARGET_WRIST
     QueueHandle_t messageQueue_;
-    // Callback ESP-NOW : s'exécute dans la tâche WiFi, pas dans une ISR CPU.
     static void onReceiveTaskCallback(const uint8_t* mac, const uint8_t* data, int len);
 #endif
 

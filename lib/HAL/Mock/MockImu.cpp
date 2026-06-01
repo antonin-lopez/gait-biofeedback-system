@@ -1,8 +1,6 @@
 #include "MockImu.h"
 #include <cmath>
 
-MockImu::MockImu() : accelX_(0.0f), accelY_(0.0f), accelZ_(0.0f) {}
-
 bool MockImu::init() {
     return true;
 }

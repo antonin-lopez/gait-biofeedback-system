@@ -1,13 +1,13 @@
 #pragma once
 
-#include "../../lib/HAL/Board.h"
-#include "../../lib/HAL/Feedback.h"
-#include "../../lib/network/NetworkManager.h"
-#include "../../lib/core/StateMachine.h"
-#include "../../lib/core/WristStatesImpl.h"
-#include "../../lib/algorithms/GaitAnalyzer.h"
-#include "../../include/Protocol.h"
-#include "../../include/Types.h"
+#include "Board.h"
+#include "Feedback.h"
+#include "NetworkManager.h"
+#include "StateMachine.h"
+#include "WristStatesImpl.h"
+#include "GaitAnalyzer.h"
+#include "Protocol.h"
+#include "Types.h"
 #include <cstdint>
 
 // Application principale du boîtier poignet (hub maître).
@@ -17,11 +17,11 @@ private:
     Feedback& feedback_;
     NetworkManager& network_;
 
-    ReposState reposState_;
+    IdleState idleState_;
     DiagnosticState diagnosticState_;
     CalibrationState calibrationState_;
-    CourseNormalState courseNormalState_;
-    CourseAlerteState courseAlerteState_;
+    RunningNormalState runningNormalState_;
+    RunningAlertState runningAlertState_;
     PauseState pauseState_;
 
     StateMachine fsm_;
@@ -45,6 +45,7 @@ private:
 
     void bindStateTargets();
     void onStateEntered(SystemState entered, SystemState previous);
+    void updateDisplayForState(SystemState state);
     void pulseLed(FeedbackColor flashColor, FeedbackColor basePattern, uint32_t durationMs);
     void restoreLedIfNeeded();
     void processCalibrationImpact(float peak, uint8_t side);
@@ -53,7 +54,7 @@ private:
     bool isImpactValid(uint32_t impactTime) const;
     bool isAbsoluteThresholdMet(float left, float right) const;
     bool areImpactsPairedForStride() const;
-    void enterHardwareFaultLoop();
+    void handleHardwareInitFailure();
     void pollButton(bool& btnShort, bool& btnLong);
 
 public:

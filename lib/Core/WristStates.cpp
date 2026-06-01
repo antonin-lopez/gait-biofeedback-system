@@ -1,5 +1,5 @@
 #include "WristStates.h"
-#include "../../lib/HAL/Feedback.h"
+#include "Feedback.h"
 #include "../../include/AppConfig.h"
 
 namespace WristStates {
@@ -9,7 +9,7 @@ void handleWristState(SystemState state, Feedback& ui, bool btnShort, bool btnLo
     (void)btnLong;
 
     switch (state) {
-        case SystemState::REPOS:
+        case SystemState::IDLE:
             ui.setLedPattern(FeedbackColor::ORANGE_BREATH);
             break;
 
@@ -22,11 +22,11 @@ void handleWristState(SystemState state, Feedback& ui, bool btnShort, bool btnLo
             ui.setLedPattern(FeedbackColor::BLUE_FLASH);
             break;
 
-        case SystemState::COURSE_NORMAL:
+        case SystemState::RUNNING_NORMAL:
             ui.setLedPattern(FeedbackColor::GREEN_FIXED);
             break;
 
-        case SystemState::COURSE_ALERTE:
+        case SystemState::RUNNING_ALERT:
             if (currentAsymmetry > ASYMMETRY_THRESHOLD) {
                 ui.setLedPattern(FeedbackColor::RED_FLASH);
                 ui.triggerBuzzerBeep(2000, 200);

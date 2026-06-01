@@ -1,10 +1,11 @@
 #include "AnkleApp.h"
-#include "../../include/NetworkConfig.h"
-#include "../../include/Protocol.h"
-#include "../../lib/network/ProtocolCodec.h"
-#include "../../include/AppConfig.h"
-#include "../../include/Types.h"
+#include "NetworkConfig.h"
+#include "Protocol.h"
+#include "ProtocolCodec.h"
+#include "AppConfig.h"
+#include "Types.h"
 #include <Arduino.h>
+#include <esp_system.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -13,9 +14,8 @@ AnkleApp::AnkleApp(Imu& imu, NetworkManager& network)
 
 void AnkleApp::setup() {
     if (!imu_.init() || !network_.init()) {
-        while (true) {
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
+        vTaskDelay(pdMS_TO_TICKS(500));
+        esp_restart();
     }
 }
 

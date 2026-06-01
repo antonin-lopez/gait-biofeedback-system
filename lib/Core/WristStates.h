@@ -5,5 +5,7 @@
 class Feedback;
 
 namespace WristStates {
-    void handleWristState(SystemState state, Feedback& ui, bool btnShort, bool btnLong, float currentAsymmetry);
-}
+
+void handleWristState(SystemState state, Feedback& ui, bool btnShort, bool btnLong, float currentAsymmetry);
+
+}  // namespace WristStates

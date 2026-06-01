@@ -4,78 +4,74 @@
 #include "../../../lib/HAL/Mock/MockFeedback.h"
 #include "../../../include/Types.h"
 
-void setUp(void) {}
-void tearDown(void) {}
+void setUp() {}
+void tearDown() {}
 
-static void bindAllStates(ReposState& repos, DiagnosticState& diagnostic, CalibrationState& calibration,
-                          CourseNormalState& courseNormal, CourseAlerteState& courseAlerte, PauseState& pause) {
-    repos.bindTargets(&diagnostic, &calibration);
-    diagnostic.bindTargets(&repos, &calibration);
-    calibration.bindTargets(&repos, &courseNormal);
-    courseNormal.bindTargets(&pause, &repos, &courseAlerte);
-    courseAlerte.bindTargets(&pause, &repos, &courseNormal);
-    pause.bindTargets(&courseNormal, &repos);
+static void bindAllStates(IdleState& idle, DiagnosticState& diagnostic, CalibrationState& calibration,
+                          RunningNormalState& runningNormal, RunningAlertState& runningAlert, PauseState& pause) {
+    idle.bindTargets(&diagnostic, &calibration);
+    diagnostic.bindTargets(&idle, &calibration);
+    calibration.bindTargets(&idle, &runningNormal);
+    runningNormal.bindTargets(&pause, &idle, &runningAlert);
+    runningAlert.bindTargets(&pause, &idle, &runningNormal);
+    pause.bindTargets(&runningNormal, &idle);
 }
 
-void test_initial_state_is_repos(void) {
-    ReposState repos;
+void test_initial_state_is_idle() {
+    IdleState idle;
     DiagnosticState diagnostic;
     CalibrationState calibration;
-    CourseNormalState courseNormal;
-    CourseAlerteState courseAlerte;
+    RunningNormalState runningNormal;
+    RunningAlertState runningAlert;
     PauseState pause;
-    bindAllStates(repos, diagnostic, calibration, courseNormal, courseAlerte, pause);
-    StateMachine fsm(repos, diagnostic, calibration, courseNormal, courseAlerte, pause);
+    bindAllStates(idle, diagnostic, calibration, runningNormal, runningAlert, pause);
+    StateMachine fsm(idle, diagnostic, calibration, runningNormal, runningAlert, pause);
 
-    TEST_ASSERT_EQUAL(SystemState::REPOS, fsm.getCurrentState());
+    TEST_ASSERT_EQUAL(SystemState::IDLE, fsm.getCurrentState());
 }
 
-void test_state_transition(void) {
-    ReposState repos;
+void test_calibration_completes_to_running_normal() {
+    IdleState idle;
     DiagnosticState diagnostic;
     CalibrationState calibration;
-    CourseNormalState courseNormal;
-    CourseAlerteState courseAlerte;
+    RunningNormalState runningNormal;
+    RunningAlertState runningAlert;
     PauseState pause;
-    bindAllStates(repos, diagnostic, calibration, courseNormal, courseAlerte, pause);
-    StateMachine fsm(repos, diagnostic, calibration, courseNormal, courseAlerte, pause);
-    MockFeedback mockUi;
-
-    fsm.requestTransition(&diagnostic);
-    fsm.update(mockUi, false, false, 0.0f);
-    TEST_ASSERT_EQUAL(SystemState::DIAGNOSTIC, fsm.getCurrentState());
+    bindAllStates(idle, diagnostic, calibration, runningNormal, runningAlert, pause);
+    StateMachine fsm(idle, diagnostic, calibration, runningNormal, runningAlert, pause);
+    MockFeedback ui;
 
     fsm.requestTransition(&calibration);
-    fsm.update(mockUi, false, false, 0.0f);
-    TEST_ASSERT_EQUAL(SystemState::CALIBRATION, fsm.getCurrentState());
+    fsm.update(ui, false, false, 0.0f);
 
-    fsm.requestTransition(&courseNormal);
-    fsm.update(mockUi, false, false, 0.0f);
-    TEST_ASSERT_EQUAL(SystemState::COURSE_NORMAL, fsm.getCurrentState());
+    fsm.requestTransition(&runningNormal);
+    fsm.update(ui, false, false, 0.0f);
+
+    TEST_ASSERT_EQUAL(SystemState::RUNNING_NORMAL, fsm.getCurrentState());
 }
 
-void test_button_short_in_repos(void) {
-    ReposState repos;
+void test_running_normal_long_press_returns_to_idle() {
+    IdleState idle;
     DiagnosticState diagnostic;
     CalibrationState calibration;
-    CourseNormalState courseNormal;
-    CourseAlerteState courseAlerte;
+    RunningNormalState runningNormal;
+    RunningAlertState runningAlert;
     PauseState pause;
-    bindAllStates(repos, diagnostic, calibration, courseNormal, courseAlerte, pause);
-    StateMachine fsm(repos, diagnostic, calibration, courseNormal, courseAlerte, pause);
-    MockFeedback mockUi;
+    bindAllStates(idle, diagnostic, calibration, runningNormal, runningAlert, pause);
+    StateMachine fsm(idle, diagnostic, calibration, runningNormal, runningAlert, pause);
+    MockFeedback ui;
 
-    TEST_ASSERT_EQUAL(SystemState::REPOS, fsm.getCurrentState());
-    fsm.update(mockUi, true, false, 0.0f);
-    TEST_ASSERT_EQUAL(SystemState::DIAGNOSTIC, fsm.getCurrentState());
+    fsm.requestTransition(&runningNormal);
+    fsm.update(ui, false, false, 0.0f);
+    fsm.update(ui, false, true, 0.0f);
+
+    TEST_ASSERT_EQUAL(SystemState::IDLE, fsm.getCurrentState());
 }
 
-int main(int argc, char** argv) {
-    (void)argc;
-    (void)argv;
+int main() {
     UNITY_BEGIN();
-    RUN_TEST(test_initial_state_is_repos);
-    RUN_TEST(test_state_transition);
-    RUN_TEST(test_button_short_in_repos);
+    RUN_TEST(test_initial_state_is_idle);
+    RUN_TEST(test_calibration_completes_to_running_normal);
+    RUN_TEST(test_running_normal_long_press_returns_to_idle);
     return UNITY_END();
 }

@@ -35,8 +35,12 @@ void M5Feedback::triggerBuzzerBeep(uint32_t frequencyHz, uint32_t durationMs) {
     M5.Speaker.tone(frequencyHz, durationMs);
 }
 
-void M5Feedback::updateDisplay(SystemState state, float currentAsymmetry) {
+void M5Feedback::showStatusLine(const char* statusLine) {
     M5.Lcd.setCursor(0, 0);
-    M5.Lcd.printf("State: %d\n", static_cast<uint8_t>(state));
-    M5.Lcd.printf("Asymmetry: %.1f%%\n", currentAsymmetry);
+    M5.Lcd.printf("%s\n", statusLine ? statusLine : "");
+}
+
+void M5Feedback::showAsymmetryPercent(float asymmetryPercent) {
+    M5.Lcd.setCursor(0, 16);
+    M5.Lcd.printf("Asymmetry: %.1f%%\n", asymmetryPercent);
 }

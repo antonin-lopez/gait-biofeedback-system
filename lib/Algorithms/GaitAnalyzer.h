@@ -6,20 +6,20 @@
 // Analyse d'asymétrie de foulée et calibration des baselines.
 class GaitAnalyzer {
 private:
-    float leftBaseline_;
-    float rightBaseline_;
-    uint8_t calibStepCount_;
-    uint8_t leftStepCount_;
-    uint8_t rightStepCount_;
-    float leftAccumulator_;
-    float rightAccumulator_;
+    float leftBaseline_ = 0.0f;
+    float rightBaseline_ = 0.0f;
+    uint8_t calibStepCount_ = 0;
+    uint8_t leftStepCount_ = 0;
+    uint8_t rightStepCount_ = 0;
+    float leftAccumulator_ = 0.0f;
+    float rightAccumulator_ = 0.0f;
 
 public:
-    GaitAnalyzer();
+    GaitAnalyzer() = default;
     void resetCalibration();
     bool addCalibrationStep(float peakForce, FootSide side);
     void setBaselines(float left, float right);
-    float computeAsymmetry(float leftPeak, float rightPeak);
+    float computeAsymmetry(float leftPeak, float rightPeak) const;
 
     float getLeftBaseline() const { return leftBaseline_; }
     float getRightBaseline() const { return rightBaseline_; }

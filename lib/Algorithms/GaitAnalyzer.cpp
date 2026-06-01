@@ -3,15 +3,6 @@
 #include <algorithm>
 #include <cmath>
 
-GaitAnalyzer::GaitAnalyzer()
-    : leftBaseline_(0.0f),
-      rightBaseline_(0.0f),
-      calibStepCount_(0),
-      leftStepCount_(0),
-      rightStepCount_(0),
-      leftAccumulator_(0.0f),
-      rightAccumulator_(0.0f) {}
-
 void GaitAnalyzer::resetCalibration() {
     calibStepCount_ = 0;
     leftStepCount_ = 0;
@@ -48,7 +39,7 @@ void GaitAnalyzer::setBaselines(float left, float right) {
     rightBaseline_ = right;
 }
 
-float GaitAnalyzer::computeAsymmetry(float leftPeak, float rightPeak) {
+float GaitAnalyzer::computeAsymmetry(float leftPeak, float rightPeak) const {
     if (leftPeak < MIN_IMPACT_FORCE_G || rightPeak < MIN_IMPACT_FORCE_G) {
         return 0.0f;
     }

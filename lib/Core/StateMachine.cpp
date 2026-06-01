@@ -1,19 +1,19 @@
 #include "StateMachine.h"
 #include "WristStatesImpl.h"
 #include "../../include/AppConfig.h"
-#include "../../lib/HAL/Feedback.h"
+#include "Feedback.h"
 
-StateMachine::StateMachine(ReposState& repos, DiagnosticState& diagnostic, CalibrationState& calibration,
-                           CourseNormalState& courseNormal, CourseAlerteState& courseAlerte, PauseState& pause)
-    : reposState_(repos),
+StateMachine::StateMachine(IdleState& idle, DiagnosticState& diagnostic, CalibrationState& calibration,
+                           RunningNormalState& runningNormal, RunningAlertState& runningAlert, PauseState& pause)
+    : idleState_(idle),
       diagnosticState_(diagnostic),
       calibrationState_(calibration),
-      courseNormalState_(courseNormal),
-      courseAlerteState_(courseAlerte),
+      runningNormalState_(runningNormal),
+      runningAlertState_(runningAlert),
       pauseState_(pause),
       transitionRequested_(false),
       pendingState_(nullptr) {
-    currentState_ = &reposState_;
+    currentState_ = &idleState_;
 }
 
 void StateMachine::requestTransition(AppState* target) {
@@ -26,7 +26,7 @@ void StateMachine::requestTransition(AppState* target) {
 }
 
 SystemState StateMachine::getCurrentState() const {
-    return currentState_ ? currentState_->getStateType() : SystemState::REPOS;
+    return currentState_ ? currentState_->getStateType() : SystemState::IDLE;
 }
 
 void StateMachine::performTransition(AppState* nextState, Feedback& ui) {

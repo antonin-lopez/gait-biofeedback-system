@@ -1,8 +1,5 @@
 #include "MockFeedback.h"
 
-MockFeedback::MockFeedback()
-    : lastColor_(FeedbackColor::ORANGE_BREATH), lastFrequencyHz_(0), lastDurationMs_(0) {}
-
 void MockFeedback::setLedPattern(FeedbackColor color) {
     lastColor_ = color;
 }
@@ -12,9 +9,12 @@ void MockFeedback::triggerBuzzerBeep(uint32_t frequencyHz, uint32_t durationMs) 
     lastDurationMs_ = durationMs;
 }
 
-void MockFeedback::updateDisplay(SystemState state, float currentAsymmetry) {
-    (void)state;
-    (void)currentAsymmetry;
+void MockFeedback::showStatusLine(const char* statusLine) {
+    (void)statusLine;
+}
+
+void MockFeedback::showAsymmetryPercent(float asymmetryPercent) {
+    (void)asymmetryPercent;
 }
 
 FeedbackColor MockFeedback::getLastColor() const {

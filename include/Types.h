@@ -3,12 +3,12 @@
 #include <cstdint>
 
 enum class SystemState : uint8_t {
-    REPOS,          // État de veille initial
-    DIAGNOSTIC,     // Vérification des capteurs
-    CALIBRATION,    // Établissement de la baseline
-    COURSE_NORMAL,  // Course stable
-    COURSE_ALERTE,  // Course avec asymétrie > 10%
-    PAUSE           // Pause pendant la course
+    IDLE,            // État de veille initial
+    DIAGNOSTIC,      // Vérification des capteurs
+    CALIBRATION,     // Établissement de la baseline
+    RUNNING_NORMAL,  // Course stable
+    RUNNING_ALERT,   // Course avec asymétrie > 10 %
+    PAUSE            // Pause pendant la course
 };
 
 enum class DeviceRole : uint8_t {

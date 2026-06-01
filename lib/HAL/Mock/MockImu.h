@@ -4,12 +4,12 @@
 
 class MockImu : public Imu {
 private:
-    float accelX_;
-    float accelY_;
-    float accelZ_;
+    float accelX_ = 0.0f;
+    float accelY_ = 0.0f;
+    float accelZ_ = 0.0f;
 
 public:
-    MockImu();
+    MockImu() = default;
 
     bool init() override;
     void update() override;

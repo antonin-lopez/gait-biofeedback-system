@@ -5,11 +5,11 @@
 #include "../../include/Types.h"
 
 class Feedback;
-class ReposState;
+class IdleState;
 class DiagnosticState;
 class CalibrationState;
-class CourseNormalState;
-class CourseAlerteState;
+class RunningNormalState;
+class RunningAlertState;
 class PauseState;
 
 // Machine à états du poignet (implémentation concrète).
@@ -17,19 +17,19 @@ class StateMachine : public StateMachineInterface {
 private:
     AppState* currentState_;
 
-    ReposState& reposState_;
+    IdleState& idleState_;
     DiagnosticState& diagnosticState_;
     CalibrationState& calibrationState_;
-    CourseNormalState& courseNormalState_;
-    CourseAlerteState& courseAlerteState_;
+    RunningNormalState& runningNormalState_;
+    RunningAlertState& runningAlertState_;
     PauseState& pauseState_;
 
     bool transitionRequested_;
     AppState* pendingState_;
 
 public:
-    StateMachine(ReposState& repos, DiagnosticState& diagnostic, CalibrationState& calibration,
-                 CourseNormalState& courseNormal, CourseAlerteState& courseAlerte, PauseState& pause);
+    StateMachine(IdleState& idle, DiagnosticState& diagnostic, CalibrationState& calibration,
+                 RunningNormalState& runningNormal, RunningAlertState& runningAlert, PauseState& pause);
     ~StateMachine() = default;
 
     void requestTransition(AppState* target) override;

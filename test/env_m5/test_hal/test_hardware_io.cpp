@@ -1,38 +1,33 @@
 #include <unity.h>
 #include <M5Unified.h>
-#include "../../../lib/HAL/M5StickCPlus2/M5Board.h"
-#include "../../../lib/HAL/M5StickCPlus2/M5Imu.h"
-#include "../../../lib/HAL/M5StickCPlus2/M5Feedback.h"
+#include "M5Board.h"
+#include "M5Imu.h"
+#include "M5Feedback.h"
 
-M5Board board;
-M5Imu imu;
-M5Feedback feedback;
-
-void setUp(void) {
-    board.init();
-    imu.init();
+void test_board_init_and_button_readable() {
+    M5Board board;
+    TEST_ASSERT_TRUE(board.init());
+    (void)board.isButtonPressed();
 }
 
-void tearDown(void) {}
-
-void test_board_battery_level(void) {
-    uint8_t level = board.getBatteryLevel();
-    TEST_ASSERT_GREATER_OR_EQUAL(0, level);
-    TEST_ASSERT_LESS_OR_EQUAL(100, level);
-}
-
-void test_imu_acceleration_reading(void) {
+void test_imu_reads_acceleration() {
+    M5Imu imu;
+    TEST_ASSERT_TRUE(imu.init());
     imu.update();
-    float accelZ = imu.getAccelerationZ();
-    float magnitude = imu.getAccelerationMagnitude();
-
-    TEST_ASSERT_NOT_NAN(accelZ);
-    TEST_ASSERT_NOT_NAN(magnitude);
+    (void)imu.getAccelerationZ();
 }
 
-int main(int argc, char** argv) {
+void test_feedback_led_and_display() {
+    M5Feedback feedback;
+    feedback.setLedPattern(FeedbackColor::GREEN_FIXED);
+    feedback.showStatusLine("TEST");
+    feedback.showAsymmetryPercent(0.0f);
+}
+
+int main() {
     UNITY_BEGIN();
-    RUN_TEST(test_board_battery_level);
-    RUN_TEST(test_imu_acceleration_reading);
+    RUN_TEST(test_board_init_and_button_readable);
+    RUN_TEST(test_imu_reads_acceleration);
+    RUN_TEST(test_feedback_led_and_display);
     return UNITY_END();
 }

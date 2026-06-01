@@ -13,12 +13,13 @@
 #include <esp_now.h>
 #endif
 
-EspNowManager* EspNowManager::instance_ = nullptr;
+EspNowManager* EspNowManager::activeInstance_ = nullptr;
 
 #ifdef TARGET_WRIST
 void EspNowManager::onReceiveTaskCallback(const uint8_t* mac, const uint8_t* data, int len) {
     (void)mac;
-    if (!EspNowManager::instance_ || len != static_cast<int>(IMPACT_PAYLOAD_WIRE_SIZE)) {
+    EspNowManager* const mgr = activeInstance_;
+    if (!mgr || len != static_cast<int>(IMPACT_PAYLOAD_WIRE_SIZE)) {
         return;
     }
 
@@ -27,8 +28,7 @@ void EspNowManager::onReceiveTaskCallback(const uint8_t* mac, const uint8_t* dat
         return;
     }
 
-    // Contexte tâche : xQueueSend (pas xQueueSendFromISR).
-    xQueueSend(EspNowManager::instance_->messageQueue_, &payload, 0);
+    xQueueSend(mgr->messageQueue_, &payload, 0);
 }
 #endif
 
@@ -39,6 +39,9 @@ EspNowManager::EspNowManager() : receiveCallback_(nullptr) {
 }
 
 EspNowManager::~EspNowManager() {
+    if (activeInstance_ == this) {
+        activeInstance_ = nullptr;
+    }
 #ifdef TARGET_WRIST
     if (messageQueue_) {
         vQueueDelete(messageQueue_);
@@ -73,7 +76,7 @@ bool EspNowManager::init() {
         return false;
     }
 
-    instance_ = this;
+    activeInstance_ = this;
     esp_now_register_recv_cb(onReceiveTaskCallback);
 
     return true;

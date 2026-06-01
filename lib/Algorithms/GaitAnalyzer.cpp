@@ -49,8 +49,7 @@ void GaitAnalyzer::setBaselines(float left, float right) {
 }
 
 float GaitAnalyzer::computeAsymmetry(float leftPeak, float rightPeak) {
-    // Comparaison flottante avec epsilon (jamais == sur des float).
-    if (std::abs(leftPeak) < FLOAT_COMPARE_EPSILON || std::abs(rightPeak) < FLOAT_COMPARE_EPSILON) {
+    if (leftPeak < MIN_IMPACT_FORCE_G || rightPeak < MIN_IMPACT_FORCE_G) {
         return 0.0f;
     }
 

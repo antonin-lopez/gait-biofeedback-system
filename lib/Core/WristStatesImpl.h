@@ -53,9 +53,10 @@ class CourseNormalState : public AppState {
 private:
     AppState* pauseTarget_ = nullptr;
     AppState* reposTarget_ = nullptr;
+    AppState* alerteTarget_ = nullptr;
 
 public:
-    void bindTargets(AppState* pause, AppState* repos);
+    void bindTargets(AppState* pause, AppState* repos, AppState* alerte);
     void onEnter(StateMachineInterface* fsm, Feedback& ui) override;
     void execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) override;
     void onExit(StateMachineInterface* fsm, Feedback& ui) override;
@@ -67,9 +68,10 @@ class CourseAlerteState : public AppState {
 private:
     AppState* pauseTarget_ = nullptr;
     AppState* reposTarget_ = nullptr;
+    AppState* courseNormalTarget_ = nullptr;
 
 public:
-    void bindTargets(AppState* pause, AppState* repos);
+    void bindTargets(AppState* pause, AppState* repos, AppState* courseNormal);
     void onEnter(StateMachineInterface* fsm, Feedback& ui) override;
     void execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) override;
     void onExit(StateMachineInterface* fsm, Feedback& ui) override;

@@ -8,7 +8,7 @@ private:
     uint8_t simulatedBatteryLevel_ = 100;
 
 public:
-    void init() override;
+    bool init() override;
     bool isButtonPressed() const override;
     uint8_t getBatteryLevel() const override;
     void sleep(uint32_t durationMs) override;

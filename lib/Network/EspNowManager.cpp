@@ -68,7 +68,7 @@ bool EspNowManager::init() {
         return false;
     }
 
-    messageQueue_ = xQueueCreate(32, sizeof(ImpactPayload));
+    messageQueue_ = xQueueCreate(ESP_NOW_QUEUE_SIZE, sizeof(ImpactPayload));
     if (!messageQueue_) {
         return false;
     }

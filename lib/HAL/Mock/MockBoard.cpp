@@ -1,6 +1,8 @@
 #include "MockBoard.h"
 
-void MockBoard::init() {}
+bool MockBoard::init() {
+    return true;
+}
 
 bool MockBoard::isButtonPressed() const {
     return simulatedButtonPressed_;

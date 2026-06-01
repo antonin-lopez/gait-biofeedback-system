@@ -1,7 +1,8 @@
 #include "WristApp.h"
 #include "../../include/AppConfig.h"
-#include "../../include/Protocol.h"
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 WristApp::WristApp(Board& board, Feedback& feedback, NetworkManager& network)
     : board_(board),
@@ -13,6 +14,8 @@ WristApp::WristApp(Board& board, Feedback& feedback, NetworkManager& network)
       lastRightImpact_(0.0f),
       lastLeftImpactTime_(0),
       lastRightImpactTime_(0),
+      lastLeftSeqNum_(0),
+      lastRightSeqNum_(0),
       currentAsymmetry_(0.0f),
       lastButtonTime_(0),
       debouncedPressed_(false),
@@ -30,14 +33,22 @@ void WristApp::bindStateTargets() {
     reposState_.bindTargets(&diagnosticState_, &calibrationState_);
     diagnosticState_.bindTargets(&reposState_, &calibrationState_);
     calibrationState_.bindTargets(&reposState_, &courseNormalState_);
-    courseNormalState_.bindTargets(&pauseState_, &reposState_);
-    courseAlerteState_.bindTargets(&pauseState_, &reposState_);
+    courseNormalState_.bindTargets(&pauseState_, &reposState_, &courseAlerteState_);
+    courseAlerteState_.bindTargets(&pauseState_, &reposState_, &courseNormalState_);
     pauseState_.bindTargets(&courseNormalState_, &reposState_);
 }
 
+void WristApp::enterHardwareFaultLoop() {
+    while (true) {
+        feedback_.setLedPattern(FeedbackColor::RED_FLASH);
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+
 void WristApp::setup() {
-    board_.init();
-    network_.init();
+    if (!board_.init() || !network_.init()) {
+        enterHardwareFaultLoop();
+    }
 }
 
 void WristApp::onStateEntered(SystemState entered, SystemState previous) {
@@ -142,6 +153,21 @@ bool WristApp::isAbsoluteThresholdMet(float left, float right) const {
     return (left > MIN_IMPACT_FORCE_G && right > MIN_IMPACT_FORCE_G);
 }
 
+bool WristApp::areImpactsPairedForStride() const {
+    if (!isImpactValid(lastLeftImpactTime_) || !isImpactValid(lastRightImpactTime_)) {
+        return false;
+    }
+
+    if (!isAbsoluteThresholdMet(lastLeftImpact_, lastRightImpact_)) {
+        return false;
+    }
+
+    const uint32_t delta = (lastLeftImpactTime_ >= lastRightImpactTime_)
+                               ? (lastLeftImpactTime_ - lastRightImpactTime_)
+                               : (lastRightImpactTime_ - lastLeftImpactTime_);
+    return delta <= STRIDE_PAIR_MAX_DELTA_MS;
+}
+
 void WristApp::pollButton(bool& btnShort, bool& btnLong) {
     btnShort = false;
     btnLong = false;
@@ -178,7 +204,7 @@ void WristApp::pollButton(bool& btnShort, bool& btnLong) {
 void WristApp::loop() {
     ImpactPayload incoming;
     while (network_.getNextMessage(incoming)) {
-        handleIncomingImpact(incoming.peakDeceleration, incoming.footSide);
+        handleIncomingImpact(incoming);
     }
 
     bool btnShort = false;
@@ -192,18 +218,10 @@ void WristApp::loop() {
         lastRightImpact_ = 0.0f;
     }
 
-    if (isAbsoluteThresholdMet(lastLeftImpact_, lastRightImpact_)) {
+    if (areImpactsPairedForStride()) {
         currentAsymmetry_ = analyzer_.computeAsymmetry(lastLeftImpact_, lastRightImpact_);
     } else {
         currentAsymmetry_ = 0.0f;
-    }
-
-    const SystemState currentState = fsm_.getCurrentState();
-    if (currentState == SystemState::COURSE_NORMAL && currentAsymmetry_ > ASYMMETRY_THRESHOLD) {
-        fsm_.requestTransition(&courseAlerteState_);
-    } else if (currentState == SystemState::COURSE_ALERTE &&
-               currentAsymmetry_ <= (ASYMMETRY_THRESHOLD * ASYMMETRY_HYSTERESIS_RATIO)) {
-        fsm_.requestTransition(&courseNormalState_);
     }
 
     handleCalibrationTimeout();
@@ -217,22 +235,35 @@ void WristApp::loop() {
 
     feedback_.updateDisplay(newState, currentAsymmetry_);
     restoreLedIfNeeded();
+
+    vTaskDelay(pdMS_TO_TICKS(LOOP_PERIOD_MS));
 }
 
-void WristApp::handleIncomingImpact(float peak, uint8_t side) {
+void WristApp::handleIncomingImpact(const ImpactPayload& incoming) {
     const SystemState state = fsm_.getCurrentState();
+    const bool isLeft = (incoming.footSide == static_cast<uint8_t>(FootSide::LEFT));
 
-    if (side == static_cast<uint8_t>(FootSide::LEFT)) {
-        lastLeftImpact_ = peak;
+    if (isLeft) {
+        if (lastLeftSeqNum_ != 0 && incoming.seqNum > lastLeftSeqNum_ + 1) {
+            lastLeftImpact_ = 0.0f;
+            lastLeftImpactTime_ = 0;
+        }
+        lastLeftSeqNum_ = incoming.seqNum;
+        lastLeftImpact_ = incoming.peakDeceleration;
         lastLeftImpactTime_ = millis();
     } else {
-        lastRightImpact_ = peak;
+        if (lastRightSeqNum_ != 0 && incoming.seqNum > lastRightSeqNum_ + 1) {
+            lastRightImpact_ = 0.0f;
+            lastRightImpactTime_ = 0;
+        }
+        lastRightSeqNum_ = incoming.seqNum;
+        lastRightImpact_ = incoming.peakDeceleration;
         lastRightImpactTime_ = millis();
     }
 
     if (state == SystemState::DIAGNOSTIC) {
         processDiagnosticImpact();
     } else if (state == SystemState::CALIBRATION) {
-        processCalibrationImpact(peak, side);
+        processCalibrationImpact(incoming.peakDeceleration, incoming.footSide);
     }
 }

@@ -1,9 +1,10 @@
 #include "M5Board.h"
 #include <M5Unified.h>
 
-void M5Board::init() {
+bool M5Board::init() {
     auto cfg = M5.config();
     M5.begin(cfg);
+    return true;
 }
 
 bool M5Board::isButtonPressed() const {

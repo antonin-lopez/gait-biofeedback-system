@@ -5,13 +5,18 @@
 #include "../../include/AppConfig.h"
 #include "../../include/Types.h"
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 AnkleApp::AnkleApp(Imu& imu, NetworkManager& network)
     : imu_(imu), network_(network), detector_(IMPACT_DETECTION_THRESHOLD_G), seqNum_(0) {}
 
 void AnkleApp::setup() {
-    imu_.init();
-    network_.init();
+    if (!imu_.init() || !network_.init()) {
+        while (true) {
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+    }
 }
 
 void AnkleApp::loop() {
@@ -36,4 +41,6 @@ void AnkleApp::loop() {
             network_.send(WRIST_HUB_MAC, wireBuffer, wireLength);
         }
     }
+
+    vTaskDelay(pdMS_TO_TICKS(LOOP_PERIOD_MS));
 }

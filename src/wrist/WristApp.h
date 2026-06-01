@@ -6,6 +6,7 @@
 #include "../../lib/core/StateMachine.h"
 #include "../../lib/core/WristStatesImpl.h"
 #include "../../lib/algorithms/GaitAnalyzer.h"
+#include "../../include/Protocol.h"
 #include "../../include/Types.h"
 #include <cstdint>
 
@@ -29,6 +30,8 @@ private:
     float lastRightImpact_;
     uint32_t lastLeftImpactTime_;
     uint32_t lastRightImpactTime_;
+    uint32_t lastLeftSeqNum_;
+    uint32_t lastRightSeqNum_;
     float currentAsymmetry_;
     uint32_t lastButtonTime_;
     bool debouncedPressed_;
@@ -49,11 +52,13 @@ private:
     void handleCalibrationTimeout();
     bool isImpactValid(uint32_t impactTime) const;
     bool isAbsoluteThresholdMet(float left, float right) const;
+    bool areImpactsPairedForStride() const;
+    void enterHardwareFaultLoop();
     void pollButton(bool& btnShort, bool& btnLong);
 
 public:
     WristApp(Board& board, Feedback& feedback, NetworkManager& network);
     void setup();
     void loop();
-    void handleIncomingImpact(float peak, uint8_t side);
+    void handleIncomingImpact(const ImpactPayload& incoming);
 };

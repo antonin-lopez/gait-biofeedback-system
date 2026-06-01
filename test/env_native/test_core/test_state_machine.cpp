@@ -12,8 +12,8 @@ static void bindAllStates(ReposState& repos, DiagnosticState& diagnostic, Calibr
     repos.bindTargets(&diagnostic, &calibration);
     diagnostic.bindTargets(&repos, &calibration);
     calibration.bindTargets(&repos, &courseNormal);
-    courseNormal.bindTargets(&pause, &repos);
-    courseAlerte.bindTargets(&pause, &repos);
+    courseNormal.bindTargets(&pause, &repos, &courseAlerte);
+    courseAlerte.bindTargets(&pause, &repos, &courseNormal);
     pause.bindTargets(&courseNormal, &repos);
 }
 

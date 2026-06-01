@@ -18,14 +18,16 @@ void CalibrationState::bindTargets(AppState* repos, AppState* courseNormal) {
     courseNormalTarget_ = courseNormal;
 }
 
-void CourseNormalState::bindTargets(AppState* pause, AppState* repos) {
+void CourseNormalState::bindTargets(AppState* pause, AppState* repos, AppState* alerte) {
     pauseTarget_ = pause;
     reposTarget_ = repos;
+    alerteTarget_ = alerte;
 }
 
-void CourseAlerteState::bindTargets(AppState* pause, AppState* repos) {
+void CourseAlerteState::bindTargets(AppState* pause, AppState* repos, AppState* courseNormal) {
     pauseTarget_ = pause;
     reposTarget_ = repos;
+    courseNormalTarget_ = courseNormal;
 }
 
 void PauseState::bindTargets(AppState* courseNormal, AppState* repos) {
@@ -110,11 +112,12 @@ void CourseNormalState::onEnter(StateMachineInterface* fsm, Feedback& ui) {
 void CourseNormalState::execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong,
                                 float asymmetry) {
     (void)ui;
-    (void)asymmetry;
     if (btnShort && pauseTarget_) {
         fsm->requestTransition(pauseTarget_);
     } else if (btnLong && reposTarget_) {
         fsm->requestTransition(reposTarget_);
+    } else if (asymmetry > ASYMMETRY_THRESHOLD && alerteTarget_) {
+        fsm->requestTransition(alerteTarget_);
     }
 }
 
@@ -133,11 +136,12 @@ void CourseAlerteState::onEnter(StateMachineInterface* fsm, Feedback& ui) {
 void CourseAlerteState::execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong,
                                 float asymmetry) {
     (void)ui;
-    (void)asymmetry;
     if (btnShort && pauseTarget_) {
         fsm->requestTransition(pauseTarget_);
     } else if (btnLong && reposTarget_) {
         fsm->requestTransition(reposTarget_);
+    } else if (asymmetry <= (ASYMMETRY_THRESHOLD * ASYMMETRY_HYSTERESIS_RATIO) && courseNormalTarget_) {
+        fsm->requestTransition(courseNormalTarget_);
     }
 }
 

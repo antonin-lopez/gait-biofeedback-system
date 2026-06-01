@@ -1,0 +1,49 @@
+{
+    "name": "HAL",
+    "version": "1.0.0",
+    "build": {
+        "srcFilter": [
+            "+<*>",
+            "-<M5StickCPlus2/>"
+        ],
+        "extraScript": ""
+    },
+    "environments": {
+        "native": {
+            "build": {
+                "srcFilter": [
+                    "+<*>",
+                    "-<M5StickCPlus2/>",
+                    "+<Mock/>"
+                ]
+            }
+        },
+        "wrist": {
+            "build": {
+                "srcFilter": [
+                    "+<*>",
+                    "-<Mock/>",
+                    "+<M5StickCPlus2/>"
+                ]
+            }
+        },
+        "ankle_left": {
+            "build": {
+                "srcFilter": [
+                    "+<*>",
+                    "-<Mock/>",
+                    "+<M5StickCPlus2/>"
+                ]
+            }
+        },
+        "ankle_right": {
+            "build": {
+                "srcFilter": [
+                    "+<*>",
+                    "-<Mock/>",
+                    "+<M5StickCPlus2/>"
+                ]
+            }
+        }
+    }
+}

@@ -1,11 +1,10 @@
-#ifndef STATEMACHINE_H
-#define STATEMACHINE_H
+#pragma once
 
-#include "IStateMachine.h"
-#include "IState.h"
+#include "AppState.h"
+#include "StateMachineInterface.h"
 #include "../../include/Types.h"
 
-class IFeedback;
+class Feedback;
 class ReposState;
 class DiagnosticState;
 class CalibrationState;
@@ -13,34 +12,33 @@ class CourseNormalState;
 class CourseAlerteState;
 class PauseState;
 
-class StateMachine : public IStateMachine {
+// Machine à états du poignet (implémentation concrète).
+class StateMachine : public StateMachineInterface {
 private:
-    IState* _currentState;
+    AppState* currentState_;
 
-    ReposState& _reposState;
-    DiagnosticState& _diagnosticState;
-    CalibrationState& _calibrationState;
-    CourseNormalState& _courseNormalState;
-    CourseAlerteState& _courseAlerteState;
-    PauseState& _pauseState;
+    ReposState& reposState_;
+    DiagnosticState& diagnosticState_;
+    CalibrationState& calibrationState_;
+    CourseNormalState& courseNormalState_;
+    CourseAlerteState& courseAlerteState_;
+    PauseState& pauseState_;
 
-    bool _transitionRequested;
-    SystemState _requestedState;
+    bool transitionRequested_;
+    AppState* pendingState_;
 
 public:
     StateMachine(ReposState& repos, DiagnosticState& diagnostic, CalibrationState& calibration,
                  CourseNormalState& courseNormal, CourseAlerteState& courseAlerte, PauseState& pause);
     ~StateMachine() = default;
 
-    void requestTransition(SystemState target) override;
+    void requestTransition(AppState* target) override;
     SystemState getCurrentState() const override;
 
-    void update(IFeedback* ui, bool btnShort, bool btnLong, float asymmetry);
+    void update(Feedback& ui, bool btnShort, bool btnLong, float asymmetry);
+
+    static bool isTransitionAllowed(AppState* from, AppState* to);
 
 private:
-    IState* getStateInstance(SystemState state);
-    void performTransition(IState* nextState, IFeedback* ui);
+    void performTransition(AppState* nextState, Feedback& ui);
 };
-
-#endif // STATEMACHINE_H
-

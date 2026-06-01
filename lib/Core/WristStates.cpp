@@ -1,38 +1,40 @@
 #include "WristStates.h"
+#include "../../lib/HAL/Feedback.h"
 #include "../../include/AppConfig.h"
 
 namespace WristStates {
 
-void handleWristState(SystemState state, IFeedback* ui, bool btnShort, bool btnLong, float currentAsymmetry) {
-    if (ui == nullptr) return;
+void handleWristState(SystemState state, Feedback& ui, bool btnShort, bool btnLong, float currentAsymmetry) {
+    (void)btnShort;
+    (void)btnLong;
 
     switch (state) {
         case SystemState::REPOS:
-            ui->setLedPattern(FeedbackColor::ORANGE_BREATH);
+            ui.setLedPattern(FeedbackColor::ORANGE_BREATH);
             break;
 
         case SystemState::DIAGNOSTIC:
-            ui->setLedPattern(FeedbackColor::WHITE_FIXED);
-            ui->triggerBuzzerBeep(1000, 100);
+            ui.setLedPattern(FeedbackColor::WHITE_FIXED);
+            ui.triggerBuzzerBeep(1000, 100);
             break;
 
         case SystemState::CALIBRATION:
-            ui->setLedPattern(FeedbackColor::BLUE_FLASH);
+            ui.setLedPattern(FeedbackColor::BLUE_FLASH);
             break;
 
         case SystemState::COURSE_NORMAL:
-            ui->setLedPattern(FeedbackColor::GREEN_FIXED);
+            ui.setLedPattern(FeedbackColor::GREEN_FIXED);
             break;
 
         case SystemState::COURSE_ALERTE:
             if (currentAsymmetry > ASYMMETRY_THRESHOLD) {
-                ui->setLedPattern(FeedbackColor::RED_FLASH);
-                ui->triggerBuzzerBeep(2000, 200);
+                ui.setLedPattern(FeedbackColor::RED_FLASH);
+                ui.triggerBuzzerBeep(2000, 200);
             }
             break;
 
         case SystemState::PAUSE:
-            ui->setLedPattern(FeedbackColor::ORANGE_FIXED);
+            ui.setLedPattern(FeedbackColor::ORANGE_FIXED);
             break;
 
         default:
@@ -40,4 +42,4 @@ void handleWristState(SystemState state, IFeedback* ui, bool btnShort, bool btnL
     }
 }
 
-}
+}  // namespace WristStates

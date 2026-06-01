@@ -1,7 +1,6 @@
-#ifndef ESPNOWMANAGER_H
-#define ESPNOWMANAGER_H
+#pragma once
 
-#include "INetworkManager.h"
+#include "NetworkManager.h"
 #include "../../include/Protocol.h"
 #include <cstdint>
 
@@ -10,15 +9,19 @@
 #include <freertos/queue.h>
 #endif
 
-class EspNowManager : public INetworkManager {
+// Gestionnaire ESP-NOW (réception via file FreeRTOS, pas en ISR matérielle).
+class EspNowManager : public NetworkManager {
 private:
-    static EspNowManager* _instance;
-    ReceiveCallback _receiveCallback;
+    static EspNowManager* instance_;
+    ReceiveCallback receiveCallback_;
 
 #ifdef TARGET_WRIST
-    QueueHandle_t _messageQueue;
-    static void onReceiveISR(const uint8_t* mac, const uint8_t* data, int len);
+    QueueHandle_t messageQueue_;
+    // Callback ESP-NOW : s'exécute dans la tâche WiFi, pas dans une ISR CPU.
+    static void onReceiveTaskCallback(const uint8_t* mac, const uint8_t* data, int len);
 #endif
+
+    bool registerWristPeer();
 
 public:
     EspNowManager();
@@ -28,8 +31,6 @@ public:
     void registerReceiveCallback(ReceiveCallback cb) override;
 
 #ifdef TARGET_WRIST
-    bool getNextMessage(ImpactPayload* outPayload);
+    bool getNextMessage(ImpactPayload& outPayload) override;
 #endif
 };
-
-#endif // ESPNOWMANAGER_H

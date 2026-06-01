@@ -2,90 +2,212 @@
 #include "../../include/AppConfig.h"
 #include "../../include/Protocol.h"
 #include <Arduino.h>
-#include <cmath>
 
-WristApp::WristApp(IBoard* b, IFeedback* ui, INetworkManager* n)
-    : _board(b), _ui(ui), _net(n),
-      _fsm(_reposState, _diagnosticState, _calibrationState, _courseNormalState, _courseAlerteState, _pauseState),
-      _lastLeftImpact(0.0f), _lastRightImpact(0.0f),
-      _lastLeftImpactTime(0), _lastRightImpactTime(0), _currentAsymmetry(0.0f),
-      _lastButtonTime(0), _buttonPressed(false) {}
+WristApp::WristApp(Board& board, Feedback& feedback, NetworkManager& network)
+    : board_(board),
+      feedback_(feedback),
+      network_(network),
+      fsm_(reposState_, diagnosticState_, calibrationState_, courseNormalState_, courseAlerteState_,
+            pauseState_),
+      lastLeftImpact_(0.0f),
+      lastRightImpact_(0.0f),
+      lastLeftImpactTime_(0),
+      lastRightImpactTime_(0),
+      currentAsymmetry_(0.0f),
+      lastButtonTime_(0),
+      buttonPressed_(false),
+      previousFsmState_(SystemState::REPOS),
+      ledRestoreAt_(0),
+      ledBasePattern_(FeedbackColor::ORANGE_BREATH),
+      lastCalibrationActivityMs_(0) {
+    bindStateTargets();
+}
+
+void WristApp::bindStateTargets() {
+    reposState_.bindTargets(&diagnosticState_, &calibrationState_);
+    diagnosticState_.bindTargets(&reposState_, &calibrationState_);
+    calibrationState_.bindTargets(&reposState_, &courseNormalState_);
+    courseNormalState_.bindTargets(&pauseState_, &reposState_);
+    courseAlerteState_.bindTargets(&pauseState_, &reposState_);
+    pauseState_.bindTargets(&courseNormalState_, &reposState_);
+}
 
 void WristApp::setup() {
-    if (_board) _board->init();
-    if (_net) _net->init();
+    board_.init();
+    network_.init();
 }
 
-bool WristApp::_isImpactValid(uint32_t impactTime) const {
-    uint32_t now = millis();
-    return (now - impactTime) < IMPACT_TIMEOUT_MS;
+void WristApp::onStateEntered(SystemState entered, SystemState previous) {
+    switch (entered) {
+        case SystemState::CALIBRATION:
+            analyzer_.resetCalibration();
+            lastCalibrationActivityMs_ = millis();
+            ledBasePattern_ = FeedbackColor::BLUE_FLASH;
+            feedback_.setLedPattern(ledBasePattern_);
+            break;
+
+        case SystemState::DIAGNOSTIC:
+            ledBasePattern_ = FeedbackColor::WHITE_FIXED;
+            break;
+
+        case SystemState::REPOS:
+            if (previous == SystemState::CALIBRATION) {
+                analyzer_.resetCalibration();
+            }
+            ledBasePattern_ = FeedbackColor::ORANGE_BREATH;
+            break;
+
+        case SystemState::COURSE_NORMAL:
+            ledBasePattern_ = FeedbackColor::GREEN_FIXED;
+            break;
+
+        case SystemState::COURSE_ALERTE:
+            ledBasePattern_ = FeedbackColor::RED_FLASH;
+            break;
+
+        case SystemState::PAUSE:
+            ledBasePattern_ = FeedbackColor::ORANGE_FIXED;
+            break;
+
+        default:
+            break;
+    }
 }
 
-bool WristApp::_isAbsoluteThresholdMet(float left, float right) const {
-    const float MIN_IMPACT_FORCE_G = 3.0f;
+void WristApp::pulseLed(FeedbackColor flashColor, FeedbackColor basePattern, uint32_t durationMs) {
+    ledBasePattern_ = basePattern;
+    feedback_.setLedPattern(flashColor);
+    ledRestoreAt_ = millis() + durationMs;
+}
+
+void WristApp::restoreLedIfNeeded() {
+    if (ledRestoreAt_ == 0) {
+        return;
+    }
+
+    if (static_cast<int32_t>(millis() - ledRestoreAt_) >= 0) {
+        feedback_.setLedPattern(ledBasePattern_);
+        ledRestoreAt_ = 0;
+    }
+}
+
+void WristApp::processDiagnosticImpact() {
+    pulseLed(FeedbackColor::SCREEN_BLANK, FeedbackColor::WHITE_FIXED, DIAGNOSTIC_LED_PULSE_MS);
+    feedback_.triggerBuzzerBeep(1000, 50);
+}
+
+void WristApp::processCalibrationImpact(float peak, uint8_t side) {
+    if (peak < CALIBRATION_STEP_MIN_FORCE_G) {
+        return;
+    }
+
+    lastCalibrationActivityMs_ = millis();
+
+    const FootSide foot =
+        (side == static_cast<uint8_t>(FootSide::LEFT)) ? FootSide::LEFT : FootSide::RIGHT;
+    const bool completed = analyzer_.addCalibrationStep(peak, foot);
+
+    pulseLed(FeedbackColor::SCREEN_BLANK, FeedbackColor::BLUE_FLASH, CALIBRATION_LED_PULSE_MS);
+
+    if (completed) {
+        fsm_.requestTransition(&courseNormalState_);
+    }
+}
+
+void WristApp::handleCalibrationTimeout() {
+    if (fsm_.getCurrentState() != SystemState::CALIBRATION) {
+        return;
+    }
+
+    if (analyzer_.getCalibrationStepCount() == 0) {
+        return;
+    }
+
+    if ((millis() - lastCalibrationActivityMs_) > CALIBRATION_TIMEOUT_MS) {
+        fsm_.requestTransition(&reposState_);
+    }
+}
+
+bool WristApp::isImpactValid(uint32_t impactTime) const {
+    if (impactTime == 0) {
+        return false;
+    }
+    return (millis() - impactTime) < IMPACT_TIMEOUT_MS;
+}
+
+bool WristApp::isAbsoluteThresholdMet(float left, float right) const {
     return (left > MIN_IMPACT_FORCE_G && right > MIN_IMPACT_FORCE_G);
 }
 
 void WristApp::loop() {
-    if (!_board || !_ui || !_net) return;
-
-    // ── Consommer les impacts reçus de la queue (sécurisé en multithread) ──
     ImpactPayload incoming;
-    while (_net->getNextMessage(&incoming)) {
+    while (network_.getNextMessage(incoming)) {
         handleIncomingImpact(incoming.peakDeceleration, incoming.footSide);
     }
 
-    // ── Détection des actions bouton (court/long) ──
     bool btnShort = false;
     bool btnLong = false;
 
-    if (_board->isButtonPressed()) {
-        if (!_buttonPressed) {
-            _buttonPressed = true;
-            _lastButtonTime = 0;
+    if (board_.isButtonPressed()) {
+        if (!buttonPressed_) {
+            buttonPressed_ = true;
+            lastButtonTime_ = 0;
         }
     } else {
-        if (_buttonPressed) {
-            _buttonPressed = false;
+        if (buttonPressed_) {
+            buttonPressed_ = false;
             btnShort = true;
         }
     }
 
-    // ── Valider les impacts (timeouts) ──
-    if (!_isImpactValid(_lastLeftImpactTime)) {
-        _lastLeftImpact = 0.0f;
+    if (!isImpactValid(lastLeftImpactTime_)) {
+        lastLeftImpact_ = 0.0f;
     }
-    if (!_isImpactValid(_lastRightImpactTime)) {
-        _lastRightImpact = 0.0f;
+    if (!isImpactValid(lastRightImpactTime_)) {
+        lastRightImpact_ = 0.0f;
     }
 
-    // ── Recalculer asymétrie si seuil absolu atteint ──
-    if (_isAbsoluteThresholdMet(_lastLeftImpact, _lastRightImpact)) {
-        _currentAsymmetry = _analyzer.computeAsymmetry(_lastLeftImpact, _lastRightImpact);
+    if (isAbsoluteThresholdMet(lastLeftImpact_, lastRightImpact_)) {
+        currentAsymmetry_ = analyzer_.computeAsymmetry(lastLeftImpact_, lastRightImpact_);
     } else {
-        _currentAsymmetry = 0.0f;
+        currentAsymmetry_ = 0.0f;
     }
 
-    // ── Transitions asymétrie-basées (avant mise à jour FSM) ──
-    SystemState currentState = _fsm.getCurrentState();
-    if (currentState == SystemState::COURSE_NORMAL && _currentAsymmetry > ASYMMETRY_THRESHOLD) {
-        _fsm.requestTransition(SystemState::COURSE_ALERTE);
-    } else if (currentState == SystemState::COURSE_ALERTE && _currentAsymmetry <= (ASYMMETRY_THRESHOLD * 0.95f)) {
-        _fsm.requestTransition(SystemState::COURSE_NORMAL);
+    const SystemState currentState = fsm_.getCurrentState();
+    if (currentState == SystemState::COURSE_NORMAL && currentAsymmetry_ > ASYMMETRY_THRESHOLD) {
+        fsm_.requestTransition(&courseAlerteState_);
+    } else if (currentState == SystemState::COURSE_ALERTE &&
+               currentAsymmetry_ <= (ASYMMETRY_THRESHOLD * ASYMMETRY_HYSTERESIS_RATIO)) {
+        fsm_.requestTransition(&courseNormalState_);
     }
 
-    // ── Mise à jour de la FSM (traite les transitions, execute(), etc.) ──
-    _fsm.update(_ui, btnShort, btnLong, _currentAsymmetry);
+    handleCalibrationTimeout();
+    fsm_.update(feedback_, btnShort, btnLong, currentAsymmetry_);
+
+    const SystemState newState = fsm_.getCurrentState();
+    if (newState != previousFsmState_) {
+        onStateEntered(newState, previousFsmState_);
+        previousFsmState_ = newState;
+    }
+
+    feedback_.updateDisplay(newState, currentAsymmetry_);
+    restoreLedIfNeeded();
 }
 
 void WristApp::handleIncomingImpact(float peak, uint8_t side) {
-    if (side == (uint8_t)FootSide::LEFT) {
-        _lastLeftImpact = peak;
-        _lastLeftImpactTime = millis();
+    const SystemState state = fsm_.getCurrentState();
+
+    if (side == static_cast<uint8_t>(FootSide::LEFT)) {
+        lastLeftImpact_ = peak;
+        lastLeftImpactTime_ = millis();
     } else {
-        _lastRightImpact = peak;
-        _lastRightImpactTime = millis();
+        lastRightImpact_ = peak;
+        lastRightImpactTime_ = millis();
+    }
+
+    if (state == SystemState::DIAGNOSTIC) {
+        processDiagnosticImpact();
+    } else if (state == SystemState::CALIBRATION) {
+        processCalibrationImpact(peak, side);
     }
 }
-
-

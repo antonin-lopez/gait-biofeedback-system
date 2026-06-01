@@ -1,39 +1,63 @@
 #include "EspNowManager.h"
+#include "../../include/NetworkConfig.h"
+#include "ProtocolCodec.h"
+#include <cstring>
 
 #ifdef TARGET_WRIST
 #include <WiFi.h>
 #include <esp_now.h>
 #endif
 
-EspNowManager* EspNowManager::_instance = nullptr;
+#ifdef TARGET_ANKLE
+#include <WiFi.h>
+#include <esp_now.h>
+#endif
+
+EspNowManager* EspNowManager::instance_ = nullptr;
 
 #ifdef TARGET_WRIST
-void EspNowManager::onReceiveISR(const uint8_t* mac, const uint8_t* data, int len) {
-    if (!EspNowManager::_instance || len != sizeof(ImpactPayload)) {
+void EspNowManager::onReceiveTaskCallback(const uint8_t* mac, const uint8_t* data, int len) {
+    (void)mac;
+    if (!EspNowManager::instance_ || len != static_cast<int>(IMPACT_PAYLOAD_WIRE_SIZE)) {
         return;
     }
 
     ImpactPayload payload;
-    memcpy(&payload, data, sizeof(ImpactPayload));
+    if (!deserializeImpactPayload(data, static_cast<size_t>(len), payload)) {
+        return;
+    }
 
-    // NOT an ISR context — it's WiFi task context, so use standard xQueueSend, not FromISR
-    xQueueSend(EspNowManager::_instance->_messageQueue, &payload, 0);
+    // Contexte tâche : xQueueSend (pas xQueueSendFromISR).
+    xQueueSend(EspNowManager::instance_->messageQueue_, &payload, 0);
 }
 #endif
 
-EspNowManager::EspNowManager()
-    : _receiveCallback(nullptr) {
+EspNowManager::EspNowManager() : receiveCallback_(nullptr) {
 #ifdef TARGET_WRIST
-    _messageQueue = nullptr;
+    messageQueue_ = nullptr;
 #endif
 }
 
 EspNowManager::~EspNowManager() {
 #ifdef TARGET_WRIST
-    if (_messageQueue) {
-        vQueueDelete(_messageQueue);
+    if (messageQueue_) {
+        vQueueDelete(messageQueue_);
     }
 #endif
+}
+
+bool EspNowManager::registerWristPeer() {
+#ifdef TARGET_ANKLE
+    esp_now_peer_info_t peerInfo = {};
+    memcpy(peerInfo.peer_addr, WRIST_HUB_MAC, sizeof(WRIST_HUB_MAC));
+    peerInfo.channel = 0;
+    peerInfo.encrypt = false;
+
+    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+        return false;
+    }
+#endif
+    return true;
 }
 
 bool EspNowManager::init() {
@@ -44,40 +68,49 @@ bool EspNowManager::init() {
         return false;
     }
 
-    _messageQueue = xQueueCreate(32, sizeof(ImpactPayload));
-    if (!_messageQueue) {
+    messageQueue_ = xQueueCreate(32, sizeof(ImpactPayload));
+    if (!messageQueue_) {
         return false;
     }
 
-    _instance = this;
-    esp_now_register_recv_cb(onReceiveISR);
+    instance_ = this;
+    esp_now_register_recv_cb(onReceiveTaskCallback);
 
     return true;
+#elif defined(TARGET_ANKLE)
+    WiFi.mode(WIFI_STA);
+
+    if (esp_now_init() != ESP_OK) {
+        return false;
+    }
+
+    return registerWristPeer();
 #else
     return true;
 #endif
 }
 
 bool EspNowManager::send(const uint8_t* peerMac, const uint8_t* data, size_t len) {
-#ifdef TARGET_WRIST
-    return esp_now_send(peerMac, (uint8_t*)data, len) == ESP_OK;
+#if defined(TARGET_WRIST) || defined(TARGET_ANKLE)
+    return esp_now_send(peerMac, const_cast<uint8_t*>(data), len) == ESP_OK;
 #else
+    (void)peerMac;
+    (void)data;
+    (void)len;
     return true;
 #endif
 }
 
 void EspNowManager::registerReceiveCallback(ReceiveCallback cb) {
-    _receiveCallback = cb;
+    receiveCallback_ = cb;
 }
 
 #ifdef TARGET_WRIST
-bool EspNowManager::getNextMessage(ImpactPayload* outPayload) {
-    if (!_messageQueue || !outPayload) {
+bool EspNowManager::getNextMessage(ImpactPayload& outPayload) {
+    if (!messageQueue_) {
         return false;
     }
 
-    return xQueueReceive(_messageQueue, outPayload, 0) == pdTRUE;
+    return xQueueReceive(messageQueue_, &outPayload, 0) == pdTRUE;
 }
 #endif
-
-

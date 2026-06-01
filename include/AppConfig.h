@@ -1,14 +1,18 @@
-#ifndef APPCONFIG_H
-#define APPCONFIG_H
+#pragma once
 
 #include <cstdint>
 
+// Seuils et constantes applicatives (pas de nombres magiques dans la logique métier).
 constexpr float ASYMMETRY_THRESHOLD = 10.0f;
+constexpr float ASYMMETRY_HYSTERESIS_RATIO = 0.95f;
 constexpr uint8_t CALIBRATION_REQUIRED_STEPS = 30;
 constexpr float FILTER_EMA_ALPHA = 0.2f;
 constexpr uint32_t DEBOUNCE_DELAY_MS = 50;
 constexpr uint32_t SAMPLING_RATE_IMU_HZ = 100;
 constexpr uint32_t CALIBRATION_TIMEOUT_MS = 10000;
 constexpr float IMPACT_DETECTION_THRESHOLD_G = 2.0f;
-
-#endif // APPCONFIG_H
+constexpr float MIN_IMPACT_FORCE_G = 3.0f;
+constexpr float CALIBRATION_STEP_MIN_FORCE_G = 3.0f;
+constexpr uint32_t CALIBRATION_LED_PULSE_MS = 80;
+constexpr uint32_t DIAGNOSTIC_LED_PULSE_MS = 80;
+constexpr float FLOAT_COMPARE_EPSILON = 0.001f;

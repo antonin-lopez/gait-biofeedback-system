@@ -1,48 +1,55 @@
-#ifndef WRISTAPP_H
-#define WRISTAPP_H
+#pragma once
 
-#include "../../lib/HAL/IBoard.h"
-#include "../../lib/HAL/IFeedback.h"
-#include "../../lib/Network/INetworkManager.h"
-#include "../../lib/Core/StateMachine.h"
-#include "../../lib/Core/WristStatesImpl.h"
-#include "../../lib/Algorithms/GaitAnalyzer.h"
+#include "../../lib/HAL/Board.h"
+#include "../../lib/HAL/Feedback.h"
+#include "../../lib/network/NetworkManager.h"
+#include "../../lib/core/StateMachine.h"
+#include "../../lib/core/WristStatesImpl.h"
+#include "../../lib/algorithms/GaitAnalyzer.h"
 #include "../../include/Types.h"
 #include <cstdint>
 
+// Application principale du boîtier poignet (hub maître).
 class WristApp {
 private:
-    IBoard* _board;
-    IFeedback* _ui;
-    INetworkManager* _net;
+    Board& board_;
+    Feedback& feedback_;
+    NetworkManager& network_;
 
-    ReposState _reposState;
-    DiagnosticState _diagnosticState;
-    CalibrationState _calibrationState;
-    CourseNormalState _courseNormalState;
-    CourseAlerteState _courseAlerteState;
-    PauseState _pauseState;
+    ReposState reposState_;
+    DiagnosticState diagnosticState_;
+    CalibrationState calibrationState_;
+    CourseNormalState courseNormalState_;
+    CourseAlerteState courseAlerteState_;
+    PauseState pauseState_;
 
-    StateMachine _fsm;
-    GaitAnalyzer _analyzer;
-    float _lastLeftImpact;
-    float _lastRightImpact;
-    uint32_t _lastLeftImpactTime;
-    uint32_t _lastRightImpactTime;
-    float _currentAsymmetry;
-    uint32_t _lastButtonTime;
-    bool _buttonPressed;
+    StateMachine fsm_;
+    GaitAnalyzer analyzer_;
+    float lastLeftImpact_;
+    float lastRightImpact_;
+    uint32_t lastLeftImpactTime_;
+    uint32_t lastRightImpactTime_;
+    float currentAsymmetry_;
+    uint32_t lastButtonTime_;
+    bool buttonPressed_;
+    SystemState previousFsmState_;
+    uint32_t ledRestoreAt_;
+    FeedbackColor ledBasePattern_;
+    uint32_t lastCalibrationActivityMs_;
 
-    bool _isImpactValid(uint32_t impactTime) const;
-    bool _isAbsoluteThresholdMet(float left, float right) const;
+    void bindStateTargets();
+    void onStateEntered(SystemState entered, SystemState previous);
+    void pulseLed(FeedbackColor flashColor, FeedbackColor basePattern, uint32_t durationMs);
+    void restoreLedIfNeeded();
+    void processCalibrationImpact(float peak, uint8_t side);
+    void processDiagnosticImpact();
+    void handleCalibrationTimeout();
+    bool isImpactValid(uint32_t impactTime) const;
+    bool isAbsoluteThresholdMet(float left, float right) const;
 
 public:
-    WristApp(IBoard* b, IFeedback* ui, INetworkManager* n);
+    WristApp(Board& board, Feedback& feedback, NetworkManager& network);
     void setup();
     void loop();
     void handleIncomingImpact(float peak, uint8_t side);
 };
-
-#endif // WRISTAPP_H
-
-

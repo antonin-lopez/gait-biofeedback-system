@@ -1,63 +1,91 @@
 #include "StateMachine.h"
 #include "WristStatesImpl.h"
 #include "../../include/AppConfig.h"
+#include "../../lib/HAL/Feedback.h"
 
 StateMachine::StateMachine(ReposState& repos, DiagnosticState& diagnostic, CalibrationState& calibration,
                            CourseNormalState& courseNormal, CourseAlerteState& courseAlerte, PauseState& pause)
-    : _reposState(repos), _diagnosticState(diagnostic), _calibrationState(calibration),
-      _courseNormalState(courseNormal), _courseAlerteState(courseAlerte), _pauseState(pause),
-      _transitionRequested(false), _requestedState(SystemState::REPOS) {
-    _currentState = &_reposState;
+    : reposState_(repos),
+      diagnosticState_(diagnostic),
+      calibrationState_(calibration),
+      courseNormalState_(courseNormal),
+      courseAlerteState_(courseAlerte),
+      pauseState_(pause),
+      transitionRequested_(false),
+      pendingState_(nullptr) {
+    currentState_ = &reposState_;
 }
 
-void StateMachine::requestTransition(SystemState target) {
-    _transitionRequested = true;
-    _requestedState = target;
+void StateMachine::requestTransition(AppState* target) {
+    if (!target || !isTransitionAllowed(currentState_, target)) {
+        return;
+    }
+
+    transitionRequested_ = true;
+    pendingState_ = target;
 }
 
 SystemState StateMachine::getCurrentState() const {
-    return _currentState ? _currentState->getStateType() : SystemState::REPOS;
+    return currentState_ ? currentState_->getStateType() : SystemState::REPOS;
 }
 
-IState* StateMachine::getStateInstance(SystemState state) {
-    switch (state) {
+bool StateMachine::isTransitionAllowed(AppState* from, AppState* to) {
+    if (!from || !to || from == to) {
+        return false;
+    }
+
+    const SystemState fromState = from->getStateType();
+    const SystemState toState = to->getStateType();
+
+    switch (fromState) {
         case SystemState::REPOS:
-            return &_reposState;
+            return toState == SystemState::DIAGNOSTIC || toState == SystemState::CALIBRATION;
+
         case SystemState::DIAGNOSTIC:
-            return &_diagnosticState;
+            return toState == SystemState::REPOS || toState == SystemState::CALIBRATION;
+
         case SystemState::CALIBRATION:
-            return &_calibrationState;
+            return toState == SystemState::REPOS || toState == SystemState::COURSE_NORMAL;
+
         case SystemState::COURSE_NORMAL:
-            return &_courseNormalState;
+            return toState == SystemState::PAUSE || toState == SystemState::REPOS ||
+                   toState == SystemState::COURSE_ALERTE;
+
         case SystemState::COURSE_ALERTE:
-            return &_courseAlerteState;
+            return toState == SystemState::PAUSE || toState == SystemState::REPOS ||
+                   toState == SystemState::COURSE_NORMAL;
+
         case SystemState::PAUSE:
-            return &_pauseState;
+            return toState == SystemState::COURSE_NORMAL || toState == SystemState::REPOS;
+
         default:
-            return &_reposState;
+            return false;
     }
 }
 
-void StateMachine::performTransition(IState* nextState, IFeedback* ui) {
-    if (!nextState || nextState == _currentState) return;
-
-    if (_currentState) {
-        _currentState->onExit(this, ui);
+void StateMachine::performTransition(AppState* nextState, Feedback& ui) {
+    if (!nextState || nextState == currentState_) {
+        return;
     }
 
-    _currentState = nextState;
-    _currentState->onEnter(this, ui);
+    if (currentState_) {
+        currentState_->onExit(this, ui);
+    }
+
+    currentState_ = nextState;
+    currentState_->onEnter(this, ui);
 }
 
-void StateMachine::update(IFeedback* ui, bool btnShort, bool btnLong, float asymmetry) {
-    if (!_currentState) return;
+void StateMachine::update(Feedback& ui, bool btnShort, bool btnLong, float asymmetry) {
+    if (!currentState_) {
+        return;
+    }
 
-    _currentState->execute(this, ui, btnShort, btnLong, asymmetry);
+    currentState_->execute(this, ui, btnShort, btnLong, asymmetry);
 
-    if (_transitionRequested) {
-        IState* nextState = getStateInstance(_requestedState);
-        performTransition(nextState, ui);
-        _transitionRequested = false;
+    if (transitionRequested_ && pendingState_) {
+        performTransition(pendingState_, ui);
+        transitionRequested_ = false;
+        pendingState_ = nullptr;
     }
 }
-

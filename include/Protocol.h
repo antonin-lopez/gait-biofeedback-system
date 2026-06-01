@@ -1,15 +1,13 @@
-#ifndef PROTOCOL_H
-#define PROTOCOL_H
+#pragma once
 
 #include <cstdint>
 
-#pragma pack(push, 1)
-
+// Charge utile d'impact (structure logique ; le fil utilise ProtocolCodec).
 struct ImpactPayload {
     uint32_t timestampMs;
     float peakDeceleration;
     uint8_t footSide;
-    uint32_t seqNum;  // Sequence number to detect lost packets
+    uint32_t seqNum;  // Numéro de séquence pour détecter les paquets perdus
 };
 
 struct HeartbeatPayload {
@@ -17,9 +15,5 @@ struct HeartbeatPayload {
     uint8_t batteryLevel;
 };
 
-#pragma pack(pop)
-
-#define IMPACT_TIMEOUT_MS 1500  // If impact older than 1.5s, reset (packet lost)
-
-#endif // PROTOCOL_H
-
+// Si l'impact est plus vieux que ce délai, on réinitialise (paquet perdu).
+constexpr uint32_t IMPACT_TIMEOUT_MS = 1500;

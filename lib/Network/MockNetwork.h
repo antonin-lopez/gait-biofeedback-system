@@ -1,11 +1,10 @@
-#ifndef MOCKNETWORK_H
-#define MOCKNETWORK_H
+#pragma once
 
-#include "INetworkManager.h"
+#include "NetworkManager.h"
 
-class MockNetwork : public INetworkManager {
+class MockNetwork : public NetworkManager {
 private:
-    ReceiveCallback _receiveCallback;
+    ReceiveCallback receiveCallback_;
 
 public:
     bool init() override;
@@ -14,5 +13,3 @@ public:
 
     void simulateIncomingData(const uint8_t* data, int len);
 };
-
-#endif // MOCKNETWORK_H

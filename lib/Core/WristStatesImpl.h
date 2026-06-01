@@ -1,64 +1,91 @@
-#ifndef WRIST_STATES_IMPL_H
-#define WRIST_STATES_IMPL_H
+#pragma once
 
-#include "IState.h"
+#include "AppState.h"
 #include "../../include/Types.h"
 
-class IStateMachine;
-class IFeedback;
+class StateMachineInterface;
+class Feedback;
 
-// ============ REPOS (Veille) ============
-class ReposState : public IState {
+// --- REPOS (veille) ---
+class ReposState : public AppState {
+private:
+    AppState* diagnosticTarget_ = nullptr;
+    AppState* calibrationTarget_ = nullptr;
+
 public:
-    void onEnter(IStateMachine* fsm, IFeedback* ui) override;
-    void execute(IStateMachine* fsm, IFeedback* ui, bool btnShort, bool btnLong, float asymmetry) override;
-    void onExit(IStateMachine* fsm, IFeedback* ui) override;
+    void bindTargets(AppState* diagnostic, AppState* calibration);
+    void onEnter(StateMachineInterface* fsm, Feedback& ui) override;
+    void execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) override;
+    void onExit(StateMachineInterface* fsm, Feedback& ui) override;
     SystemState getStateType() const override { return SystemState::REPOS; }
 };
 
-// ============ DIAGNOSTIC ============
-class DiagnosticState : public IState {
+// --- DIAGNOSTIC ---
+class DiagnosticState : public AppState {
+private:
+    AppState* reposTarget_ = nullptr;
+    AppState* calibrationTarget_ = nullptr;
+
 public:
-    void onEnter(IStateMachine* fsm, IFeedback* ui) override;
-    void execute(IStateMachine* fsm, IFeedback* ui, bool btnShort, bool btnLong, float asymmetry) override;
-    void onExit(IStateMachine* fsm, IFeedback* ui) override;
+    void bindTargets(AppState* repos, AppState* calibration);
+    void onEnter(StateMachineInterface* fsm, Feedback& ui) override;
+    void execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) override;
+    void onExit(StateMachineInterface* fsm, Feedback& ui) override;
     SystemState getStateType() const override { return SystemState::DIAGNOSTIC; }
 };
 
-// ============ CALIBRATION ============
-class CalibrationState : public IState {
+// --- CALIBRATION ---
+class CalibrationState : public AppState {
+private:
+    AppState* reposTarget_ = nullptr;
+    AppState* courseNormalTarget_ = nullptr;
+
 public:
-    void onEnter(IStateMachine* fsm, IFeedback* ui) override;
-    void execute(IStateMachine* fsm, IFeedback* ui, bool btnShort, bool btnLong, float asymmetry) override;
-    void onExit(IStateMachine* fsm, IFeedback* ui) override;
+    void bindTargets(AppState* repos, AppState* courseNormal);
+    void onEnter(StateMachineInterface* fsm, Feedback& ui) override;
+    void execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) override;
+    void onExit(StateMachineInterface* fsm, Feedback& ui) override;
     SystemState getStateType() const override { return SystemState::CALIBRATION; }
 };
 
-// ============ COURSE_NORMAL ============
-class CourseNormalState : public IState {
+// --- COURSE_NORMAL ---
+class CourseNormalState : public AppState {
+private:
+    AppState* pauseTarget_ = nullptr;
+    AppState* reposTarget_ = nullptr;
+
 public:
-    void onEnter(IStateMachine* fsm, IFeedback* ui) override;
-    void execute(IStateMachine* fsm, IFeedback* ui, bool btnShort, bool btnLong, float asymmetry) override;
-    void onExit(IStateMachine* fsm, IFeedback* ui) override;
+    void bindTargets(AppState* pause, AppState* repos);
+    void onEnter(StateMachineInterface* fsm, Feedback& ui) override;
+    void execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) override;
+    void onExit(StateMachineInterface* fsm, Feedback& ui) override;
     SystemState getStateType() const override { return SystemState::COURSE_NORMAL; }
 };
 
-// ============ COURSE_ALERTE ============
-class CourseAlerteState : public IState {
+// --- COURSE_ALERTE ---
+class CourseAlerteState : public AppState {
+private:
+    AppState* pauseTarget_ = nullptr;
+    AppState* reposTarget_ = nullptr;
+
 public:
-    void onEnter(IStateMachine* fsm, IFeedback* ui) override;
-    void execute(IStateMachine* fsm, IFeedback* ui, bool btnShort, bool btnLong, float asymmetry) override;
-    void onExit(IStateMachine* fsm, IFeedback* ui) override;
+    void bindTargets(AppState* pause, AppState* repos);
+    void onEnter(StateMachineInterface* fsm, Feedback& ui) override;
+    void execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) override;
+    void onExit(StateMachineInterface* fsm, Feedback& ui) override;
     SystemState getStateType() const override { return SystemState::COURSE_ALERTE; }
 };
 
-// ============ PAUSE ============
-class PauseState : public IState {
+// --- PAUSE ---
+class PauseState : public AppState {
+private:
+    AppState* courseNormalTarget_ = nullptr;
+    AppState* reposTarget_ = nullptr;
+
 public:
-    void onEnter(IStateMachine* fsm, IFeedback* ui) override;
-    void execute(IStateMachine* fsm, IFeedback* ui, bool btnShort, bool btnLong, float asymmetry) override;
-    void onExit(IStateMachine* fsm, IFeedback* ui) override;
+    void bindTargets(AppState* courseNormal, AppState* repos);
+    void onEnter(StateMachineInterface* fsm, Feedback& ui) override;
+    void execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) override;
+    void onExit(StateMachineInterface* fsm, Feedback& ui) override;
     SystemState getStateType() const override { return SystemState::PAUSE; }
 };
-
-#endif // WRIST_STATES_IMPL_H

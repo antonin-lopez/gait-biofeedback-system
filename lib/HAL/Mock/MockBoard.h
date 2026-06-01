@@ -1,17 +1,18 @@
-#ifndef MOCKBOARD_H
-#define MOCKBOARD_H
+#pragma once
 
-#include "../IBoard.h"
+#include "../Board.h"
 
-class MockBoard : public IBoard {
+class MockBoard : public Board {
+private:
+    bool simulatedButtonPressed_ = false;
+    uint8_t simulatedBatteryLevel_ = 100;
+
 public:
-    bool buttonStateMock = false;
-    uint8_t batteryLevelMock = 100;
-
     void init() override;
     bool isButtonPressed() override;
     uint8_t getBatteryLevel() override;
     void sleep(uint32_t durationMs) override;
-};
 
-#endif // MOCKBOARD_H
+    void setSimulatedButtonState(bool pressed);
+    void setSimulatedBatteryLevel(uint8_t level);
+};

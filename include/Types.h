@@ -1,5 +1,4 @@
-#ifndef TYPES_H
-#define TYPES_H
+#pragma once
 
 #include <cstdint>
 
@@ -29,7 +28,6 @@ enum class FeedbackColor : uint8_t {
     BLUE_FLASH,
     GREEN_FIXED,
     RED_FLASH,
-    ORANGE_FIXED
+    ORANGE_FIXED,
+    SCREEN_BLANK
 };
-
-#endif // TYPES_H

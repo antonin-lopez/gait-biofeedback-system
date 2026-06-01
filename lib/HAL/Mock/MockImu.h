@@ -1,18 +1,20 @@
-#ifndef MOCKIMU_H
-#define MOCKIMU_H
+#pragma once
 
-#include "../IImu.h"
+#include "../Imu.h"
 
-class MockImu : public IImu {
+class MockImu : public Imu {
+private:
+    float accelX_;
+    float accelY_;
+    float accelZ_;
+
 public:
-    float accelXMock = 0.0f;
-    float accelYMock = 0.0f;
-    float accelZMock = 0.0f;
+    MockImu();
 
     bool init() override;
     void update() override;
     float getAccelerationZ() override;
     float getAccelerationMagnitude() override;
-};
 
-#endif // MOCKIMU_H
+    void setSimulatedAcceleration(float x, float y, float z);
+};

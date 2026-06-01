@@ -1,16 +1,14 @@
-#ifndef IMPACTDETECTOR_H
-#define IMPACTDETECTOR_H
+#pragma once
 
+// Détection de pic d'impact sur l'axe vertical (fenêtre glissante).
 class ImpactDetector {
 private:
-    float _previousVal;
-    float _thresholdG;
-    bool _isInsideImpact;
-    float _currentPeak;
+    float previousVal_;
+    float thresholdG_;
+    bool isInsideImpact_;
+    float currentPeak_;
 
 public:
-    ImpactDetector(float thresholdG = 2.0f);
+    explicit ImpactDetector(float thresholdG = 2.0f);
     bool processSample(float currentSample, float& outPeak);
 };
-
-#endif // IMPACTDETECTOR_H

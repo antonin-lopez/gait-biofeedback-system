@@ -8,14 +8,13 @@ bool M5Imu::init() {
 
 void M5Imu::update() {
     M5.update();
-    M5.Imu.getAccelData(&_accelX, &_accelY, &_accelZ);
+    M5.Imu.getAccelData(&accelX_, &accelY_, &accelZ_);
 }
 
 float M5Imu::getAccelerationZ() {
-    return _accelZ;
+    return accelZ_;
 }
 
 float M5Imu::getAccelerationMagnitude() {
-    return std::sqrt(_accelX * _accelX + _accelY * _accelY + _accelZ * _accelZ);
+    return std::sqrt(accelX_ * accelX_ + accelY_ * accelY_ + accelZ_ * accelZ_);
 }
-

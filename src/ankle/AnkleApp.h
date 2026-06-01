@@ -1,24 +1,21 @@
-#ifndef ANKLEAPP_H
-#define ANKLEAPP_H
+#pragma once
 
-#include "../../lib/HAL/IImu.h"
-#include "../../lib/Network/INetworkManager.h"
-#include "../../lib/Algorithms/ImpactDetector.h"
+#include "../../lib/HAL/Imu.h"
+#include "../../lib/network/NetworkManager.h"
+#include "../../lib/algorithms/ImpactDetector.h"
 #include "../../include/Types.h"
 #include <cstdint>
 
+// Application cheville (émetteur d'impacts vers le poignet).
 class AnkleApp {
 private:
-    IImu* _imu;
-    INetworkManager* _net;
-    ImpactDetector _detector;
-    uint32_t _seqNum;
+    Imu& imu_;
+    NetworkManager& network_;
+    ImpactDetector detector_;
+    uint32_t seqNum_;
 
 public:
-    AnkleApp(IImu* imu, INetworkManager* net);
+    AnkleApp(Imu& imu, NetworkManager& network);
     void setup();
     void loop();
 };
-
-#endif // ANKLEAPP_H
-

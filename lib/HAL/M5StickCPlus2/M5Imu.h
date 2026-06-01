@@ -1,11 +1,12 @@
-#ifndef M5IMU_H
-#define M5IMU_H
+#pragma once
 
-#include "../IImu.h"
+#include "../Imu.h"
 
-class M5Imu : public IImu {
+class M5Imu : public Imu {
 private:
-    float _accelX, _accelY, _accelZ;
+    float accelX_;
+    float accelY_;
+    float accelZ_;
 
 public:
     bool init() override;
@@ -13,5 +14,3 @@ public:
     float getAccelerationZ() override;
     float getAccelerationMagnitude() override;
 };
-
-#endif // M5IMU_H

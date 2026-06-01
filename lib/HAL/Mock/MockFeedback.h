@@ -1,17 +1,21 @@
-#ifndef MOCKFEEDBACK_H
-#define MOCKFEEDBACK_H
+#pragma once
 
-#include "../IFeedback.h"
+#include "../Feedback.h"
 
-class MockFeedback : public IFeedback {
+class MockFeedback : public Feedback {
+private:
+    FeedbackColor lastColor_;
+    uint32_t lastFrequencyHz_;
+    uint32_t lastDurationMs_;
+
 public:
-    FeedbackColor lastColorMock = FeedbackColor::ORANGE_BREATH;
-    uint32_t lastFrequencyMock = 0;
-    uint32_t lastDurationMock = 0;
+    MockFeedback();
 
     void setLedPattern(FeedbackColor color) override;
     void triggerBuzzerBeep(uint32_t frequencyHz, uint32_t durationMs) override;
     void updateDisplay(SystemState state, float currentAsymmetry) override;
-};
 
-#endif // MOCKFEEDBACK_H
+    FeedbackColor getLastColor() const;
+    uint32_t getLastFrequencyHz() const;
+    uint32_t getLastDurationMs() const;
+};

@@ -1,13 +1,9 @@
-#ifndef WRISTSTATES_H
-#define WRISTSTATES_H
+#pragma once
 
 #include "../../include/Types.h"
-#include "../HAL/IFeedback.h"
+
+class Feedback;
 
 namespace WristStates {
-    void handleWristState(SystemState state, IFeedback* ui, bool btnShort,
-                         bool btnLong, float currentAsymmetry);
+    void handleWristState(SystemState state, Feedback& ui, bool btnShort, bool btnLong, float currentAsymmetry);
 }
-
-#endif // WRISTSTATES_H
-

@@ -1,10 +1,7 @@
-#ifndef ANKLESTATES_H
-#define ANKLESTATES_H
+#pragma once
 
 #include "../../include/Types.h"
 
 namespace AnkleStates {
     void handleAnkleState();
 }
-
-#endif // ANKLESTATES_H

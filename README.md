@@ -37,7 +37,7 @@ build_src_filter = +<common/> +<ankle/> -<wrist/>
 
 [env:native]
 platform = native
-build_flags = -std=gnu++11 -D TARGET_NATIVE
+build_flags = -std=gnu++17 -D TARGET_NATIVE
 lib_compat_mode = off
 build_src_filter = +<common/> -<wrist/> -<ankle/>
 ```
@@ -164,21 +164,49 @@ Implémentations matérielles réelles exploitant la bibliothèque globale `M5Un
 
 ## 5. Dossier `lib/Core/` : Logique Métier et FSM Transverse
 
-### `lib/Core/StateMachine.h/.cpp`
-* **Description :** Moteur générique de Machine à États Finis (FSM) basé sur le Design Pattern State.
+### `lib/Core/IState.h` (Interface Pure du State Pattern)
+* **Description :** Interface de base pour le pattern State polymorphe. Chaque état du système hérite de cette interface.
+* **Méthodes virtuelles :**
+    * `virtual void onEnter(IStateMachine* fsm, IFeedback* ui) = 0;` (Exécuté lors de l'entrée dans l'état)
+    * `virtual void execute(IStateMachine* fsm, IFeedback* ui, bool btnShort, bool btnLong, float asymmetry) = 0;` (Boucle principale)
+    * `virtual void onExit(IStateMachine* fsm, IFeedback* ui) = 0;` (Exécuté lors de la sortie)
+    * `virtual SystemState getStateType() const = 0;` (Retourne le type d'état)
+
+### `lib/Core/IStateMachine.h` (Interface pour les Transitions)
+* **Description :** Interface que la FSM expose aux états pour permettre les transitions sécurisées.
+* **Méthodes :**
+    * `virtual void requestTransition(SystemState target) = 0;` (Un état demande une transition)
+    * `virtual SystemState getCurrentState() const = 0;` (Getter de l'état courant)
+
+### `lib/Core/StateMachine.h/.cpp` (Implémentation Concrète)
+* **Description :** Moteur de FSM polymorphe basé sur le Design Pattern State (6 classes concrètes : `ReposState`, `DiagnosticState`, `CalibrationState`, `CourseNormalState`, `CourseAlerteState`, `PauseState`).
 * **Attributs privés :**
-    * `SystemState _currentState;`
+    * `IState* _currentState;` (Pointeur vers l'objet état courant, non un enum)
+    * `ReposState* _reposState;` et 5 autres instances... (Pool statique)
+    * `bool _transitionRequested;` + `SystemState _requestedState;` (Flags de transition)
 * **Méthodes publiques :**
-    * `void transitionTo(SystemState newState);`
-    * `SystemState getCurrentState() const;`
+    * `void requestTransition(SystemState target)` (Enregistre une demande de transition)
+    * `SystemState getCurrentState() const` (Retourne l'état courant)
+    * `void update(IFeedback* ui, bool btnShort, bool btnLong, float asymmetry)` (Exécute la boucle FSM)
+* **Avantages du polymorphisme :**
+    * Chaque état est une classe isolée → zéro « switch géant »
+    * Chaque état gère ses propres LED/buzzer dans `onEnter/onExit`
+    * Les transitions sont explicites (pas de spaghetti if/else)
+    * Scalable : ajouter un état = créer une classe, implémenter `IState`
 
-### `lib/Core/WristStates.h/.cpp`
-* **Description :** Gestionnaires des actions spécifiques du nœud Maître (Poignet) lors des transitions et des cycles d'horloge.
-* **Méthodes de cycle :**
-    * `void handleWristState(SystemState state, IFeedback* ui, bool btnShort, bool btnLong, float currentAsymmetry);` (Contient le grand tableau de routage : ex: si `COURSE_NORMAL` et `asymmetry > 10%` $\rightarrow$ ordonne la transition vers `COURSE_ALERTE`).
+### `lib/Core/WristStatesImpl.h/.cpp`
+* **Description :** 6 implémentations concrètes de `IState` pour le nœud Poignet.
+    * `ReposState` : Veille orange respiration lente
+    * `DiagnosticState` : Test blanc, bip
+    * `CalibrationState` : Calibration bleue, flash à chaque pas
+    * `CourseNormalState` : Vert fixe, aucun problème
+    * `CourseAlerteState` : Rouge flash, alerte asymétrie
+    * `PauseState` : Orange fixe, suspendu
+* Chaque classe implémente la transition bouton-basée (court/long) dans `execute()`
+* Les transitions asymétrie-basées (COURSE_NORMAL ↔ COURSE_ALERTE) sont pilotées par `WristApp`
 
-### `lib/Core/AnkleStates.h/.cpp`
-* **Description :** Comportement simplifié de la FSM de la cheville (Boot $\rightarrow$ Stream d'impacts $\rightarrow$ Veille profonde si aucun mouvement prolongé).
+### `lib/Core/AnkleStates.h/.cpp` (Future)
+* **Description :** FSM simplifié pour la cheville (à implémenter avec le même pattern).
 
 ---
 
@@ -189,17 +217,25 @@ Implémentations matérielles réelles exploitant la bibliothèque globale `M5Un
 * **Méthodes :**
     * `virtual bool init() = 0;`
     * `virtual bool send(const uint8_t* peerMac, const uint8_t* data, size_t len) = 0;`
-    * `virtual void registerReceiveCallback(void (*cb)(const uint8_t* mac, const uint8_t* data, int len)) = 0;`
+    * `virtual void registerReceiveCallback(ReceiveCallback cb) = 0;`
+    * `virtual bool getNextMessage(ImpactPayload* outPayload)` (Consomme les messages de la queue)
 
 ### `lib/Network/EspNowManager.h/.cpp`
-* **Description :** Implémentation réelle de la couche réseau via le protocole Espressif ESP-NOW en mode non-bloquant. Conçu sous forme de Singleton.
+* **Description :** Implémentation ESP-NOW avec **FreeRTOS Queue** pour sécurité multithread.
+* **Architecture :**
+    * `onReceiveISR()` statique → appelé par ISR du WiFi (thread différent)
+    * ISR pousse les `ImpactPayload` dans une `QueueHandle_t` au lieu d'appeler un callback direct
+    * `getNextMessage()` → consomme la queue de manière thread-safe dans le contexte app
+* **Avantages :**
+    * ✅ Aucun risque de data tearing sur `_lastLeftImpact/_lastRightImpact`
+    * ✅ Pas de dépendance critique WiFi → app, la queue absorbe les variations
+    * ✅ Déterministe : la queue peut contenir jusqu'à 32 messages
 * **Attributs privés :**
-    * Static Mac Addresses des nœuds (déclarées en octets fixes issus de `AppConfig.h`).
-* **Méthodes publiques :**
-    * Définit l'initialisation Wi-Fi en mode `WIFI_STA`, gère l'enregistrement des pairs (Peers) et encapsule la fonction système `esp_now_send`.
+    * `QueueHandle_t _messageQueue;` (Queue FreeRTOS)
+    * `static void onReceiveISR(...)` (Callback ISR-safe)
 
 ### `lib/Network/Mock/MockNetwork.h/.cpp`
-* **Description :** Permet d'injecter artificiellement par logiciel des structures `ImpactPayload` de test dans le gestionnaire d'événements sans passer par une vraie transmission RF.
+* **Description :** Permet d'injecter artificiellement des structures `ImpactPayload` de test pour les tests PC natifs.
 
 ---
 

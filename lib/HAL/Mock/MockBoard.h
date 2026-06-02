@@ -2,10 +2,14 @@
 
 #include "Board.h"
 
-class MockBoard : public Board {
+class MockBoard : public Board
+{
 private:
     bool simulatedButtonPressed_ = false;
     uint8_t simulatedBatteryLevel_ = 100;
+
+    bool simulatedShortPress_ = false;
+    bool simulatedLongPress_ = false;
 
 public:
     bool init() override;
@@ -14,6 +18,12 @@ public:
     uint8_t getBatteryLevel() const override;
     void sleep(uint32_t durationMs) override;
 
+    bool consumeShortPress() override;
+    bool consumeLongPress() override;
+
     void setSimulatedButtonState(bool pressed);
     void setSimulatedBatteryLevel(uint8_t level);
+
+    void simulateShortPress();
+    void simulateLongPress();
 };

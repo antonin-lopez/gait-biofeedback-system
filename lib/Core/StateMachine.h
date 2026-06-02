@@ -5,40 +5,26 @@
 #include "../../include/Types.h"
 
 class Feedback;
-class IdleState;
-class DiagnosticState;
-class CalibrationState;
-class RunningNormalState;
-class RunningAlertState;
-class PauseState;
 
-// Machine à états du poignet (implémentation concrète).
-class StateMachine : public StateMachineInterface {
+class StateMachine : public StateMachineInterface
+{
 private:
-    AppState* currentState_;
-
-    IdleState& idleState_;
-    DiagnosticState& diagnosticState_;
-    CalibrationState& calibrationState_;
-    RunningNormalState& runningNormalState_;
-    RunningAlertState& runningAlertState_;
-    PauseState& pauseState_;
-
-    bool transitionRequested_;
-    AppState* pendingState_;
+    AppState *currentState_ = nullptr;
+    AppState *states_[6] = {nullptr}; // Indexé par la valeur de l'enum SystemState
+    bool transitionRequested_ = false;
+    SystemState pendingState_ = SystemState::IDLE;
 
 public:
-    StateMachine(IdleState& idle, DiagnosticState& diagnostic, CalibrationState& calibration,
-                 RunningNormalState& runningNormal, RunningAlertState& runningAlert, PauseState& pause,
-                 Feedback& ui);
+    StateMachine() = default;
     ~StateMachine() = default;
 
-    void requestTransition(AppState* target) override;
-    void forceTransition(AppState* target, Feedback& ui);
-    SystemState getCurrentState() const override;
+    void registerState(AppState *state);
+    void setInitialState(SystemState state, Feedback &ui);
 
-    void update(Feedback& ui, bool btnShort, bool btnLong, float asymmetry);
+    void requestTransition(SystemState targetState) override;
+    SystemState getCurrentState() const override;
+    void update(Feedback &ui, const SystemContext &ctx);
 
 private:
-    void performTransition(AppState* nextState, Feedback& ui);
+    void performTransition(SystemState nextState, Feedback &ui);
 };

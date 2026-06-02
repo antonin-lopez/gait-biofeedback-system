@@ -1,66 +1,58 @@
 #include "StateMachine.h"
-#include "WristStatesImpl.h"
-#include "../../include/AppConfig.h"
 #include "Feedback.h"
 
-StateMachine::StateMachine(IdleState& idle, DiagnosticState& diagnostic, CalibrationState& calibration,
-                           RunningNormalState& runningNormal, RunningAlertState& runningAlert, PauseState& pause,
-                           Feedback& ui)
-    : idleState_(idle),
-      diagnosticState_(diagnostic),
-      calibrationState_(calibration),
-      runningNormalState_(runningNormal),
-      runningAlertState_(runningAlert),
-      pauseState_(pause),
-      transitionRequested_(false),
-      pendingState_(nullptr) {
-    currentState_ = &idleState_;
-    currentState_->onEnter(this, ui);
+void StateMachine::registerState(AppState *state)
+{
+    if (state)
+    {
+        states_[static_cast<uint8_t>(state->getStateType())] = state;
+    }
 }
 
-void StateMachine::requestTransition(AppState* target) {
-    if (!target || target == currentState_) {
-        return;
+void StateMachine::setInitialState(SystemState state, Feedback &ui)
+{
+    currentState_ = states_[static_cast<uint8_t>(state)];
+    if (currentState_)
+    {
+        currentState_->onEnter(this, ui);
     }
+}
 
+void StateMachine::requestTransition(SystemState targetState)
+{
     transitionRequested_ = true;
-    pendingState_ = target;
+    pendingState_ = targetState;
 }
 
-void StateMachine::forceTransition(AppState* target, Feedback& ui) {
-    if (!target) {
-        return;
-    }
-    performTransition(target, ui);
-}
-
-SystemState StateMachine::getCurrentState() const {
+SystemState StateMachine::getCurrentState() const
+{
     return currentState_ ? currentState_->getStateType() : SystemState::IDLE;
 }
 
-void StateMachine::performTransition(AppState* nextState, Feedback& ui) {
-    if (!nextState || nextState == currentState_) {
+void StateMachine::performTransition(SystemState nextState, Feedback &ui)
+{
+    AppState *target = states_[static_cast<uint8_t>(nextState)];
+    if (!target || target == currentState_)
         return;
-    }
 
-    if (currentState_) {
+    if (currentState_)
+    {
         currentState_->onExit(this, ui);
     }
-
-    currentState_ = nextState;
+    currentState_ = target;
     currentState_->onEnter(this, ui);
 }
 
-void StateMachine::update(Feedback& ui, bool btnShort, bool btnLong, float asymmetry) {
-    if (!currentState_) {
+void StateMachine::update(Feedback &ui, const SystemContext &ctx)
+{
+    if (!currentState_)
         return;
-    }
 
-    currentState_->execute(this, ui, btnShort, btnLong, asymmetry);
+    currentState_->execute(this, ui, ctx);
 
-    if (transitionRequested_ && pendingState_) {
+    if (transitionRequested_)
+    {
         performTransition(pendingState_, ui);
         transitionRequested_ = false;
-        pendingState_ = nullptr;
     }
 }

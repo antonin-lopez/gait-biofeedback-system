@@ -1,16 +1,12 @@
 #pragma once
-
 #include "Board.h"
 #include "Feedback.h"
 #include "NetworkManager.h"
 #include "StateMachine.h"
 #include "WristStatesImpl.h"
 #include "GaitAnalyzer.h"
-#include "Protocol.h"
-#include "Types.h"
-#include <cstdint>
+#include <freertos/FreeRTOS.h>
 
-// Application principale du boîtier poignet (hub maître).
 class WristApp {
 private:
     Board& board_;
@@ -26,6 +22,7 @@ private:
 
     StateMachine fsm_;
     GaitAnalyzer analyzer_;
+    
     float lastLeftImpact_ = 0.0f;
     float lastRightImpact_ = 0.0f;
     uint32_t lastLeftImpactTime_ = 0;
@@ -33,11 +30,7 @@ private:
     uint32_t lastLeftSeqNum_ = UINT32_MAX;
     uint32_t lastRightSeqNum_ = UINT32_MAX;
     float currentAsymmetry_ = 0.0f;
-    uint32_t lastButtonTime_ = 0;
-    bool debouncedPressed_ = false;
-    bool lastRawPressed_ = false;
-    uint32_t lastDebounceChangeMs_ = 0;
-    bool longPressEmitted_ = false;
+    
     SystemState previousFsmState_ = SystemState::IDLE;
     float lastDisplayedAsymmetry_ = -1.0f;
     uint32_t lastDisplayUpdateMs_ = 0;
@@ -48,8 +41,9 @@ private:
     uint32_t lastRightHeartbeatMs_ = 0;
     bool heartbeatBlinkOn_ = false;
     uint32_t lastHeartbeatBlinkMs_ = 0;
+    TickType_t xLastWakeTime_;
 
-    void bindStateTargets();
+    void registerStatesInFsm();
     void onStateEntered(SystemState entered, SystemState previous);
     void updateDisplayForState(SystemState state, bool stateChanged);
     void pulseLed(FeedbackColor flashColor, FeedbackColor basePattern, uint32_t durationMs);
@@ -64,7 +58,6 @@ private:
     bool areBothAnklesConnected() const;
     void handleHeartbeatTimeoutUi();
     void handleHardwareInitFailure();
-    void pollButton(bool& btnShort, bool& btnLong);
 
 public:
     WristApp(Board& board, Feedback& feedback, NetworkManager& network);

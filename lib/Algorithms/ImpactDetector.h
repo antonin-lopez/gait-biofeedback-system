@@ -1,9 +1,10 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 
-// Détection de pic d'impact sur l'axe vertical (fenêtre glissante).
-class ImpactDetector {
+class ImpactDetector
+{
 private:
     float thresholdG_;
     bool isInsideImpact_;
@@ -12,5 +13,5 @@ private:
 
 public:
     explicit ImpactDetector(float thresholdG = 2.0f);
-    bool processSample(float currentSample, uint32_t nowMs, float& outPeak);
+    std::optional<float> processSample(float currentSample, uint32_t nowMs);
 };

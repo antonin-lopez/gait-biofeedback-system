@@ -4,7 +4,8 @@
 #include "../../include/Types.h"
 
 // Analyse d'asymétrie de foulée et calibration des baselines.
-class GaitAnalyzer {
+class GaitAnalyzer
+{
 private:
     float leftBaseline_ = 0.0f;
     float rightBaseline_ = 0.0f;
@@ -15,15 +16,13 @@ private:
     float rightAccumulator_ = 0.0f;
 
 public:
-    GaitAnalyzer() = default;
-    void resetCalibration();
-    bool addCalibrationStep(float peakForce, FootSide side);
-    void setBaselines(float left, float right);
-    float computeAsymmetry(float leftPeak, float rightPeak) const;
-
     float getLeftBaseline() const { return leftBaseline_; }
     float getRightBaseline() const { return rightBaseline_; }
     uint8_t getLeftStepCount() const { return leftStepCount_; }
     uint8_t getRightStepCount() const { return rightStepCount_; }
-    uint8_t getCalibrationStepCount() const { return calibStepCount_; }
+    bool isCalibrationComplete() const
+    {
+        return (leftStepCount_ >= CALIBRATION_REQUIRED_STEPS_PER_SIDE &&
+                rightStepCount_ >= CALIBRATION_REQUIRED_STEPS_PER_SIDE);
+    }
 };

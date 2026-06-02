@@ -5,7 +5,7 @@
 // Seuils et constantes applicatives (pas de nombres magiques dans la logique métier).
 constexpr float ASYMMETRY_THRESHOLD = 10.0f;
 constexpr float ASYMMETRY_HYSTERESIS_RATIO = 0.95f;
-constexpr uint8_t CALIBRATION_REQUIRED_STEPS = 30;
+constexpr uint8_t CALIBRATION_REQUIRED_STEPS_PER_SIDE = 16;
 constexpr float FILTER_EMA_ALPHA = 0.2f;
 constexpr uint32_t DEBOUNCE_DELAY_MS = 50;
 constexpr uint32_t BUTTON_LONG_PRESS_MS = 800;

@@ -1,65 +1,72 @@
 #include "AnkleApp.h"
-#include "NetworkConfig.h"
-#include "Protocol.h"
-#include "ProtocolCodec.h"
 #include "AppConfig.h"
-#include "Types.h"
-#include <Arduino.h>
-#include <esp_system.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
+#include "ProtocolCodec.h"
+#include <Preferences.h> // Pour la mémoire flash non volatile
 
-AnkleApp::AnkleApp(Imu& imu, NetworkManager& network)
+AnkleApp::AnkleApp(Imu &imu, NetworkManager &network)
     : imu_(imu), network_(network), detector_(IMPACT_DETECTION_THRESHOLD_G), seqNum_(0) {}
 
-void AnkleApp::setup() {
-    if (!imu_.init() || !network_.init()) {
-        vTaskDelay(pdMS_TO_TICKS(500));
-        esp_restart();
+void AnkleApp::setup()
+{
+    if (!imu_.init() || !network_.init())
+    {
+        // Mode panique / Secours au lieu du bootloop de redémarrage automatique
+        while (true)
+        {
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
     }
+
+    // Récupération de l'adresse MAC dynamique appairée
+    Preferences prefs;
+    prefs.begin("pairing", true);
+    prefs.getBytes("wrist_mac", wristHubMac_, 6);
+    prefs.end();
+
+    xLastWakeTime_ = xTaskGetTickCount();
 }
 
-void AnkleApp::loop() {
+void AnkleApp::loop()
+{
     imu_.update();
     const float accel = imu_.getAccelerationMagnitude();
     const uint32_t nowMs = pdTICKS_TO_MS(xTaskGetTickCount());
 
-    if ((nowMs - lastHeartbeatSentMs_) >= HEARTBEAT_SEND_INTERVAL_MS) {
-        HeartbeatPayload heartbeat{};
+    // Envoi Heartbeat
+    if ((nowMs - lastHeartbeatSentMs_) >= HEARTBEAT_SEND_INTERVAL_MS)
+    {
+        HeartbeatPayload heartbeat{
 #ifdef IS_LEFT_ANKLE
-        heartbeat.deviceRole = DeviceRole::ANKLE_LEFT;
+            DeviceRole::ANKLE_LEFT,
 #else
-        heartbeat.deviceRole = DeviceRole::ANKLE_RIGHT;
+            DeviceRole::ANKLE_RIGHT,
 #endif
-        heartbeat.batteryLevel = 0;
-
-        uint8_t heartbeatBuffer[HEARTBEAT_PAYLOAD_WIRE_SIZE];
-        const size_t heartbeatLen =
-            serializeHeartbeatPayload(heartbeat, heartbeatBuffer, sizeof(heartbeatBuffer));
-        if (heartbeatLen == HEARTBEAT_PAYLOAD_WIRE_SIZE) {
-            network_.send(WRIST_HUB_MAC, heartbeatBuffer, heartbeatLen);
-            lastHeartbeatSentMs_ = nowMs;
-        }
+            0};
+        uint8_t hbBuf[HEARTBEAT_PAYLOAD_WIRE_SIZE];
+        serializeHeartbeatPayload(heartbeat, hbBuf, sizeof(hbBuf));
+        network_.send(wristHubMac_, hbBuf, sizeof(hbBuf));
+        lastHeartbeatSentMs_ = nowMs;
     }
 
-    float outPeak = 0.0f;
-    if (detector_.processSample(accel, nowMs, outPeak)) {
+    // Traitement IMU moderne (std::optional)
+    auto peakOpt = detector_.processSample(accel, nowMs);
+    if (peakOpt.has_value())
+    {
         ImpactPayload payload;
-        payload.peakDeceleration = outPeak;
+        payload.peakDeceleration = peakOpt.value();
         payload.seqNum = seqNum_++;
-
+        payload.footSide =
 #ifdef IS_LEFT_ANKLE
-        payload.footSide = FootSide::LEFT;
+            FootSide::LEFT;
 #else
-        payload.footSide = FootSide::RIGHT;
+            FootSide::RIGHT;
 #endif
 
         uint8_t wireBuffer[IMPACT_PAYLOAD_WIRE_SIZE];
-        const size_t wireLength = serializeImpactPayload(payload, wireBuffer, sizeof(wireBuffer));
-        if (wireLength == IMPACT_PAYLOAD_WIRE_SIZE) {
-            network_.send(WRIST_HUB_MAC, wireBuffer, wireLength);
-        }
+        serializeImpactPayload(payload, wireBuffer, sizeof(wireBuffer));
+        network_.send(wristHubMac_, wireBuffer, sizeof(wireBuffer));
     }
 
-    vTaskDelay(pdMS_TO_TICKS(LOOP_PERIOD_MS));
+    // Cadencement strict sans dérive
+    vTaskDelayUntil(&xLastWakeTime_, pdMS_TO_TICKS(LOOP_PERIOD_MS));
 }

@@ -10,7 +10,7 @@ class StateMachine : public StateMachineInterface
 {
 private:
     AppState *currentState_ = nullptr;
-    AppState *states_[6] = {nullptr}; // Indexé par la valeur de l'enum SystemState
+    AppState *states_[static_cast<uint8_t>(SystemState::COUNT)] = {nullptr};
     bool transitionRequested_ = false;
     SystemState pendingState_ = SystemState::IDLE;
 

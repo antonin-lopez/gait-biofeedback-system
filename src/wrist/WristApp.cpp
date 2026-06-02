@@ -1,4 +1,4 @@
-#include "WristApp.cpp"
+#include "WristApp.h"
 #include "AppConfig.h"
 #include <Arduino.h>
 #include <esp_system.h>

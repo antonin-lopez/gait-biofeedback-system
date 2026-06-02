@@ -1,6 +1,5 @@
 #include "M5Board.h"
 #include <M5Unified.h>
-#include "../../include/AppConfig.h"
 
 bool M5Board::init()
 {
@@ -11,38 +10,17 @@ bool M5Board::init()
 
 void M5Board::update()
 {
-    M5.update();
-    bool rawPressed = M5.BtnA.isPressed();
-    uint32_t now = millis();
+    M5.update(); // Met à jour l'état interne des périphériques M5 Stack
 
-    if (rawPressed != lastRawPressed_)
+    // Exploitation directe de l'anti-rebond et de la détection de durée native de M5Unified
+    if (M5.BtnA.wasClicked())
     {
-        lastDebounceChangeMs_ = now;
-        lastRawPressed_ = rawPressed;
+        shortPressPending_ = true;
     }
 
-    if ((now - lastDebounceChangeMs_) >= DEBOUNCE_DELAY_MS && rawPressed != debouncedPressed_)
-    {
-        debouncedPressed_ = rawPressed;
-        if (debouncedPressed_)
-        {
-            lastButtonTime_ = now;
-            longPressEmitted_ = false;
-        }
-        else
-        {
-            uint32_t holdMs = now - lastButtonTime_;
-            if (!longPressEmitted_ && holdMs >= DEBOUNCE_DELAY_MS && holdMs < BUTTON_LONG_PRESS_MS)
-            {
-                shortPressPending_ = true;
-            }
-        }
-    }
-
-    if (debouncedPressed_ && !longPressEmitted_ && (now - lastButtonTime_) >= BUTTON_LONG_PRESS_MS)
+    if (M5.BtnA.wasHold())
     {
         longPressPending_ = true;
-        longPressEmitted_ = true;
     }
 }
 

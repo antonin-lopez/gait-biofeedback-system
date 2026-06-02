@@ -1,4 +1,5 @@
 #pragma once
+#include "Board.h"
 #include "Imu.h"
 #include "NetworkManager.h"
 #include "ImpactDetector.h"
@@ -7,6 +8,7 @@
 class AnkleApp
 {
 private:
+    Board &board_;
     Imu &imu_;
     NetworkManager &network_;
     ImpactDetector detector_;
@@ -16,7 +18,7 @@ private:
     uint8_t wristHubMac_[6];
 
 public:
-    AnkleApp(Imu &imu, NetworkManager &network);
+    AnkleApp(Board &board, Imu &imu, NetworkManager &network);
     void setup();
     void loop();
 };

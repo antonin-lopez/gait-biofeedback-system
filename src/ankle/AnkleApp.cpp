@@ -9,12 +9,17 @@ AnkleApp::AnkleApp(Board &board, Imu &imu, NetworkManager &network)
 
 void AnkleApp::setup()
 {
+    // Si l'initialisation échoue, on évite le blocage infini et silencieux
     if (!imu_.init() || !network_.init())
     {
-        while (true)
+        for (uint8_t i = 0; i < FAULT_BLINK_COUNT; ++i)
         {
-            vTaskDelay(pdMS_TO_TICKS(1000));
+            // Signalement visuel d'erreur sur le boîtier cheville
+            board_.update();
+            // Note: Optionnel selon votre matériel, vous pouvez faire clignoter une LED dédiée ici
+            vTaskDelay(pdMS_TO_TICKS(FAULT_BLINK_DELAY_MS));
         }
+        esp_restart(); // Redémarrage automatique du nœud défaillant
     }
 
     Preferences prefs;
@@ -22,8 +27,6 @@ void AnkleApp::setup()
     size_t readBytes = prefs.getBytes("wrist_mac", wristHubMac_, 6);
     prefs.end();
 
-    // CORRIGÉ : Si aucune adresse MAC valide n'est lue (mémoire Flash vierge),
-    // on applique l'adresse de repli définie dans NetworkConfig pour éviter l'envoi dans le vide.
     if (readBytes != 6)
     {
         memcpy(wristHubMac_, WRIST_HUB_MAC, 6);
@@ -35,7 +38,7 @@ void AnkleApp::setup()
 void AnkleApp::loop()
 {
     imu_.update();
-    board_.update(); 
+    board_.update();
     const float accel = imu_.getAccelerationMagnitude();
     const uint32_t nowMs = pdTICKS_TO_MS(xTaskGetTickCount());
 
@@ -47,14 +50,13 @@ void AnkleApp::loop()
 #else
             DeviceRole::ANKLE_RIGHT,
 #endif
-            board_.getBatteryLevel() 
-        };
+            board_.getBatteryLevel()};
         uint8_t hbBuf[HEARTBEAT_PAYLOAD_WIRE_SIZE];
         serializeHeartbeatPayload(heartbeat, hbBuf, sizeof(hbBuf));
         network_.send(wristHubMac_, hbBuf, sizeof(hbBuf));
-        
+
         // CORRIGÉ : Syntaxe rectifiée avec l'underscore variable membre correct (_)
-        lastHeartbeatSentMs_ = nowMs; 
+        lastHeartbeatSentMs_ = nowMs;
     }
 
     auto peakOpt = detector_.processSample(accel, nowMs);

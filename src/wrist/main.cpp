@@ -6,13 +6,15 @@
 
 M5Board realBoard;
 M5Feedback realUi;
-WristEspNowManager realNet;
+BioGait::WristEspNowManager realNet; // Typage résolu avec le Namespace
 WristApp app(realBoard, realUi, realNet);
 
-void setup() {
+void setup()
+{
     app.setup();
 }
 
-void loop() {
+void loop()
+{
     app.loop();
 }

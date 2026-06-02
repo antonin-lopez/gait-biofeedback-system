@@ -3,20 +3,14 @@
 
 namespace
 {
-
     static_assert(sizeof(float) == sizeof(uint32_t), "Float size mismatch");
 
 #if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-    uint32_t hostToNetwork32(uint32_t value)
-    {
-        return value;
-    }
-    uint32_t networkToHost32(uint32_t value)
-    {
-        return value;
-    }
-#elif defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-    uint32_t hostToNetwork32(uint32_t value)
+    uint32_t hostToNetwork32(uint32_t value) noexcept { return value; }
+    uint32_t networkToHost32(uint32_t value) noexcept { return value; }
+#else
+    // Regroupement unifié du Little Endian et des cas par défaut
+    uint32_t hostToNetwork32(uint32_t value) noexcept
     {
 #if defined(__GNUC__) || defined(__clang__)
         return __builtin_bswap32(value);
@@ -25,47 +19,30 @@ namespace
                ((value & 0x00FF0000u) >> 8) | ((value & 0xFF000000u) >> 24);
 #endif
     }
-    uint32_t networkToHost32(uint32_t value)
-    {
-        return hostToNetwork32(value);
-    }
-#else
-    uint32_t hostToNetwork32(uint32_t value)
-    {
-#if defined(__GNUC__) || defined(__clang__)
-        return __builtin_bswap32(value);
-#else
-        return ((value & 0x000000FFu) << 24) | ((value & 0x0000FF00u) << 8) |
-               ((value & 0x00FF0000u) >> 8) | ((value & 0xFF000000u) >> 24);
-#endif
-    }
-    uint32_t networkToHost32(uint32_t value)
-    {
-        return hostToNetwork32(value);
-    }
+    uint32_t networkToHost32(uint32_t value) noexcept { return hostToNetwork32(value); }
 #endif
 
-    void writeUint32BE(uint8_t *buffer, uint32_t value)
+    void writeUint32BE(uint8_t *buffer, uint32_t value) noexcept
     {
         const uint32_t networkValue = hostToNetwork32(value);
         memcpy(buffer, &networkValue, sizeof(networkValue));
     }
 
-    uint32_t readUint32BE(const uint8_t *buffer)
+    uint32_t readUint32BE(const uint8_t *buffer) noexcept
     {
         uint32_t networkValue = 0;
         memcpy(&networkValue, buffer, sizeof(networkValue));
         return networkToHost32(networkValue);
     }
 
-    uint32_t floatToNetworkBits(float value)
+    uint32_t floatToNetworkBits(float value) noexcept
     {
         uint32_t bits = 0;
         memcpy(&bits, &value, sizeof(bits));
         return hostToNetwork32(bits);
     }
 
-    float networkBitsToFloat(uint32_t networkBits)
+    float networkBitsToFloat(uint32_t networkBits) noexcept
     {
         const uint32_t hostBits = networkToHost32(networkBits);
         float value = 0.0f;

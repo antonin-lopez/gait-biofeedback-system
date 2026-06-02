@@ -39,12 +39,13 @@ void M5Feedback::triggerBuzzerBeep(uint32_t frequencyHz, uint32_t durationMs)
     M5.Speaker.tone(frequencyHz, durationMs);
 }
 
-void M5Feedback::showStatusLine(const char *statusLine)
+void M5Feedback::showStatusLine(std::string_view statusLine)
 {
-    // Nettoie uniquement la ligne de texte de statut pour éviter les superpositions graphiques
     M5.Lcd.fillRect(0, 0, M5.Lcd.width() - 26, 16, 0x000000);
     M5.Lcd.setCursor(0, 0);
-    M5.Lcd.printf("%s\n", statusLine ? statusLine : "");
+
+    // Extraction sécurisée grâce à la taille connue de string_view
+    M5.Lcd.printf("%.*s\n", static_cast<int>(statusLine.size()), statusLine.data());
 }
 
 void M5Feedback::showAsymmetryPercent(float asymmetryPercent)

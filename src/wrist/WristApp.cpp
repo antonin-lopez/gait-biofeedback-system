@@ -2,13 +2,11 @@
 #include "AppConfig.h"
 #include <Arduino.h>
 #include <esp_system.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
+#include <string_view>
 
 namespace
 {
-
-    const char *systemStateLabel(SystemState state)
+    std::string_view systemStateLabel(SystemState state) noexcept
     {
         switch (state)
         {
@@ -28,15 +26,11 @@ namespace
             return "UNKNOWN";
         }
     }
-
-} // namespace
+}
 
 WristApp::WristApp(Board &board, Feedback &feedback, NetworkManager &network)
-    : board_(board),
-      feedback_(feedback),
-      network_(network),
-      fsm_()
-{ // Le constructeur de FSM est maintenant découplé et vide
+    : board_(board), feedback_(feedback), network_(network), fsm_()
+{
     registerStatesInFsm();
 }
 
@@ -79,14 +73,12 @@ void WristApp::onStateEntered(SystemState entered, SystemState previous)
     {
     case SystemState::CALIBRATION:
         analyzer_.resetCalibration();
-        lastCalibrationActivityMs_ = millis();
+        lastCalibrationActivityMs_ = getCurrentTimeMs();
         ledBasePattern_ = FeedbackColor::BLUE_FLASH;
         break;
-
     case SystemState::DIAGNOSTIC:
         ledBasePattern_ = FeedbackColor::WHITE_FIXED;
         break;
-
     case SystemState::IDLE:
         if (previous == SystemState::CALIBRATION)
         {
@@ -94,27 +86,103 @@ void WristApp::onStateEntered(SystemState entered, SystemState previous)
         }
         ledBasePattern_ = FeedbackColor::ORANGE_BREATH;
         break;
-
     case SystemState::RUNNING_NORMAL:
         ledBasePattern_ = FeedbackColor::GREEN_FIXED;
         break;
-
     case SystemState::RUNNING_ALERT:
         ledBasePattern_ = FeedbackColor::RED_FLASH;
         break;
-
     case SystemState::PAUSE:
         ledBasePattern_ = FeedbackColor::ORANGE_FIXED;
         break;
-
     default:
         break;
     }
 }
 
-void WristApp::updateDisplayForState(SystemState state, bool stateChanged)
+void WristApp::pollNetworkChannels()
 {
-    const uint32_t now = millis();
+    ImpactPayload incoming;
+    bool newImpactReceived = false;
+    while (network_.getNextMessage(incoming))
+    {
+        handleIncomingImpact(incoming);
+        newImpactReceived = true;
+    }
+
+    HeartbeatPayload heartbeat;
+    while (network_.getNextHeartbeat(heartbeat))
+    {
+        const uint32_t now = getCurrentTimeMs();
+        if (heartbeat.deviceRole == DeviceRole::ANKLE_LEFT)
+        {
+            lastLeftHeartbeatMs_ = now;
+        }
+        else if (heartbeat.deviceRole == DeviceRole::ANKLE_RIGHT)
+        {
+            lastRightHeartbeatMs_ = now;
+        }
+    }
+
+    invalidateStaleData();
+    processGaitAnalysis(newImpactReceived);
+}
+
+void WristApp::invalidateStaleData()
+{
+    if (!isImpactValid(lastLeftImpactTime_))
+    {
+        lastLeftImpact_ = 0.0f;
+    }
+    if (!isImpactValid(lastRightImpactTime_))
+    {
+        lastRightImpact_ = 0.0f;
+    }
+}
+
+void WristApp::processGaitAnalysis(bool newImpact)
+{
+    if (newImpact && areBothAnklesConnected() && areImpactsPairedForStride())
+    {
+        currentAsymmetry_ = analyzer_.computeAsymmetry(lastLeftImpact_, lastRightImpact_);
+    }
+    else if (!areBothAnklesConnected())
+    {
+        currentAsymmetry_ = 0.0f;
+        SystemState currentState = fsm_.getCurrentState();
+        if (currentState == SystemState::RUNNING_NORMAL || currentState == SystemState::RUNNING_ALERT)
+        {
+            fsm_.requestTransition(SystemState::PAUSE);
+        }
+    }
+}
+
+void WristApp::updateSystemStateMachine()
+{
+    handleCalibrationTimeout();
+
+    // Correction : Initialisation atomique directe par liste d'agrégats (Const-Safety)
+    const SystemContext ctx{
+        board_.consumeShortPress(),
+        board_.consumeLongPress(),
+        currentAsymmetry_};
+
+    fsm_.update(feedback_, ctx);
+
+    const SystemState newState = fsm_.getCurrentState();
+    const bool stateChanged = (newState != previousFsmState_);
+    if (stateChanged)
+    {
+        onStateEntered(newState, previousFsmState_);
+        previousFsmState_ = newState;
+    }
+
+    maintainUserFeedback(newState, stateChanged);
+}
+
+void WristApp::maintainUserFeedback(SystemState state, bool stateChanged)
+{
+    const uint32_t now = getCurrentTimeMs();
     const bool asymmetryChanged = (currentAsymmetry_ != lastDisplayedAsymmetry_);
     const bool refreshDue = (now - lastDisplayUpdateMs_) >= DISPLAY_REFRESH_INTERVAL_MS;
 
@@ -129,13 +197,30 @@ void WristApp::updateDisplayForState(SystemState state, bool stateChanged)
         lastDisplayedAsymmetry_ = currentAsymmetry_;
         lastDisplayUpdateMs_ = now;
     }
+
+    restoreLedIfNeeded();
+    handleHeartbeatTimeoutUi();
+}
+
+void WristApp::loop()
+{
+    board_.update();
+
+    pollNetworkChannels();
+    updateSystemStateMachine();
+
+#ifdef TARGET_WRIST
+    vTaskDelayUntil(&xLastWakeTime_, pdMS_TO_TICKS(LOOP_PERIOD_MS));
+#else
+    vTaskDelay(pdMS_TO_TICKS(LOOP_PERIOD_MS));
+#endif
 }
 
 void WristApp::pulseLed(FeedbackColor flashColor, FeedbackColor basePattern, uint32_t durationMs)
 {
     ledBasePattern_ = basePattern;
     feedback_.setLedPattern(flashColor);
-    ledRestoreAt_ = millis() + durationMs;
+    ledRestoreAt_ = getCurrentTimeMs() + durationMs;
 }
 
 void WristApp::restoreLedIfNeeded()
@@ -145,7 +230,7 @@ void WristApp::restoreLedIfNeeded()
         return;
     }
 
-    if (static_cast<int32_t>(millis() - ledRestoreAt_) >= 0)
+    if (static_cast<int32_t>(getCurrentTimeMs() - ledRestoreAt_) >= 0)
     {
         feedback_.setLedPattern(ledBasePattern_);
         ledRestoreAt_ = 0;
@@ -165,10 +250,8 @@ void WristApp::processCalibrationImpact(float peak, FootSide side)
         return;
     }
 
-    lastCalibrationActivityMs_ = millis();
-
+    lastCalibrationActivityMs_ = getCurrentTimeMs();
     const bool completed = analyzer_.addCalibrationStep(peak, side);
-
     pulseLed(FeedbackColor::SCREEN_BLANK, FeedbackColor::BLUE_FLASH, CALIBRATION_LED_PULSE_MS);
 
     if (completed)
@@ -183,13 +266,12 @@ void WristApp::handleCalibrationTimeout()
     {
         return;
     }
-
     if (analyzer_.getCalibrationStepCount() == 0)
     {
         return;
     }
 
-    if ((millis() - lastCalibrationActivityMs_) > CALIBRATION_TIMEOUT_MS)
+    if ((getCurrentTimeMs() - lastCalibrationActivityMs_) > CALIBRATION_TIMEOUT_MS)
     {
         fsm_.requestTransition(SystemState::IDLE);
     }
@@ -201,7 +283,7 @@ bool WristApp::isImpactValid(uint32_t impactTime) const
     {
         return false;
     }
-    return (millis() - impactTime) < IMPACT_TIMEOUT_MS;
+    return (getCurrentTimeMs() - impactTime) < IMPACT_TIMEOUT_MS;
 }
 
 bool WristApp::isHeartbeatAlive(uint32_t heartbeatTime) const
@@ -210,7 +292,7 @@ bool WristApp::isHeartbeatAlive(uint32_t heartbeatTime) const
     {
         return false;
     }
-    return (millis() - heartbeatTime) < HEARTBEAT_TIMEOUT_MS;
+    return (getCurrentTimeMs() - heartbeatTime) < HEARTBEAT_TIMEOUT_MS;
 }
 
 bool WristApp::areBothAnklesConnected() const
@@ -229,7 +311,6 @@ bool WristApp::areImpactsPairedForStride() const
     {
         return false;
     }
-
     if (!isAbsoluteThresholdMet(lastLeftImpact_, lastRightImpact_))
     {
         return false;
@@ -249,95 +330,14 @@ void WristApp::handleHeartbeatTimeoutUi()
         return;
     }
 
-    if ((millis() - lastHeartbeatBlinkMs_) < HEARTBEAT_DISCONNECT_BLINK_MS)
+    if ((getCurrentTimeMs() - lastHeartbeatBlinkMs_) < HEARTBEAT_DISCONNECT_BLINK_MS)
     {
         return;
     }
 
-    lastHeartbeatBlinkMs_ = millis();
+    lastHeartbeatBlinkMs_ = getCurrentTimeMs();
     heartbeatBlinkOn_ = !heartbeatBlinkOn_;
     feedback_.setLedPattern(heartbeatBlinkOn_ ? FeedbackColor::WHITE_FIXED : ledBasePattern_);
-}
-
-void WristApp::loop()
-{
-    board_.update();
-
-    ImpactPayload incoming;
-    bool newImpactReceived = false;
-    while (network_.getNextMessage(incoming))
-    {
-        handleIncomingImpact(incoming);
-        newImpactReceived = true;
-    }
-
-    HeartbeatPayload heartbeat;
-    while (network_.getNextHeartbeat(heartbeat))
-    {
-        const uint32_t now = millis();
-        if (heartbeat.deviceRole == DeviceRole::ANKLE_LEFT)
-        {
-            lastLeftHeartbeatMs_ = now;
-        }
-        else if (heartbeat.deviceRole == DeviceRole::ANKLE_RIGHT)
-        {
-            lastRightHeartbeatMs_ = now;
-        }
-    }
-
-    if (!isImpactValid(lastLeftImpactTime_))
-    {
-        lastLeftImpact_ = 0.0f;
-    }
-    if (!isImpactValid(lastRightImpactTime_))
-    {
-        lastRightImpact_ = 0.0f;
-    }
-
-    // LOGIQUE ÉVÉNEMENTIELLE
-    if (newImpactReceived && areBothAnklesConnected() && areImpactsPairedForStride())
-    {
-        currentAsymmetry_ = analyzer_.computeAsymmetry(lastLeftImpact_, lastRightImpact_);
-    }
-    else if (!areBothAnklesConnected())
-    {
-        currentAsymmetry_ = 0.0f;
-
-        // CORRIGÉ : Si une cheville se déconnecte pendant l'effort, on bascule de sécurité en PAUSE.
-        // Cela évite que la FSM valide une course "normale" à cause d'une asymétrie tombée à 0.
-        SystemState currentState = fsm_.getCurrentState();
-        if (currentState == SystemState::RUNNING_NORMAL || currentState == SystemState::RUNNING_ALERT)
-        {
-            fsm_.requestTransition(SystemState::PAUSE);
-        }
-    }
-
-    handleCalibrationTimeout();
-
-    SystemContext ctx;
-    ctx.btnShort = board_.consumeShortPress();
-    ctx.btnLong = board_.consumeLongPress();
-    ctx.asymmetry = currentAsymmetry_;
-
-    fsm_.update(feedback_, ctx);
-
-    const SystemState newState = fsm_.getCurrentState();
-    const bool stateChanged = (newState != previousFsmState_);
-    if (stateChanged)
-    {
-        onStateEntered(newState, previousFsmState_);
-        previousFsmState_ = newState;
-    }
-
-    updateDisplayForState(newState, stateChanged);
-    restoreLedIfNeeded();
-    handleHeartbeatTimeoutUi();
-
-#ifdef TARGET_WRIST
-    vTaskDelayUntil(&xLastWakeTime_, pdMS_TO_TICKS(LOOP_PERIOD_MS));
-#else
-    vTaskDelay(pdMS_TO_TICKS(LOOP_PERIOD_MS));
-#endif
 }
 
 void WristApp::handleIncomingImpact(const ImpactPayload &incoming)
@@ -351,7 +351,7 @@ void WristApp::handleIncomingImpact(const ImpactPayload &incoming)
         const bool gapDetected = (lastLeftSeqNum_ != UINT32_MAX) && (delta > 1);
         lastLeftSeqNum_ = incoming.seqNum;
         lastLeftImpact_ = incoming.peakDeceleration;
-        lastLeftImpactTime_ = millis();
+        lastLeftImpactTime_ = getCurrentTimeMs();
         if (gapDetected)
         {
             lastRightImpact_ = 0.0f;
@@ -364,7 +364,7 @@ void WristApp::handleIncomingImpact(const ImpactPayload &incoming)
         const bool gapDetected = (lastRightSeqNum_ != UINT32_MAX) && (delta > 1);
         lastRightSeqNum_ = incoming.seqNum;
         lastRightImpact_ = incoming.peakDeceleration;
-        lastRightImpactTime_ = millis();
+        lastRightImpactTime_ = getCurrentTimeMs();
         if (gapDetected)
         {
             lastLeftImpact_ = 0.0f;

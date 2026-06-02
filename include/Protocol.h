@@ -17,4 +17,4 @@ struct HeartbeatMessage {
 };
 #pragma pack(pop)
 
-inline const uint8_t WRIST_MAC[6] = {0x24, 0x0A, 0xC4, 0x12, 0x34, 0x56}; // À adapter avec la vraie adresse MAC du maître
+inline const uint8_t WRIST_MAC[6] = {0xC0, 0xCD, 0xD6, 0x14, 0x9E, 0x20};

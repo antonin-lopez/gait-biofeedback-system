@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <esp_now.h>
+#include <M5Unified.h>
 #include "Protocol.h"
 #include "Hardware.h"
 #include "GaitAlgorithms.h"
@@ -32,7 +33,7 @@ void loop()
     if (now - lastHeartbeatMs >= 500)
     {
         HeartbeatMessage hb;
-#ifdef IS_LEFT_ANKLE
+#if ANKLE_SIDE == 0
         hb.role = DeviceRole::ANKLE_LEFT;
 #else
         hb.role = DeviceRole::ANKLE_RIGHT;
@@ -42,7 +43,7 @@ void loop()
         lastHeartbeatMs = now;
     }
 
-    // Traitement de l'accélération (Fréquence de boucle ~100Hz grâce au delay)
+    // Traitement de l'accélération
     float accel = Hardware::getAccelMagnitude();
     auto peak = detector.processSample(accel, now);
     if (peak.has_value())
@@ -50,7 +51,7 @@ void loop()
         ImpactMessage msg;
         msg.peakForce = peak.value();
         msg.seqNum = seqNum++;
-#ifdef IS_LEFT_ANKLE
+#if ANKLE_SIDE == 0
         msg.isLeft = 1;
 #else
         msg.isLeft = 0;

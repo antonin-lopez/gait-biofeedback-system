@@ -11,7 +11,7 @@ std::optional<float> ImpactDetector::processSample(float currentSample, uint32_t
     {
         if (currentSample > thresholdG_)
         {
-            isInsideImpact = true;
+            isInsideImpact_ = true;
             currentPeak_ = currentSample;
         }
     }
@@ -36,17 +36,17 @@ void GaitAnalyzer::reset()
 
 bool GaitAnalyzer::addCalibrationStep(float force, bool isLeft)
 {
-    if (isLeft && leftStepCount_ < 15)
+    if (isLeft && leftStepCount_ < 16)
     {
         leftAccumulator_ += force;
         leftStepCount_++;
     }
-    else if (!isLeft && rightStepCount_ < 15)
+    else if (!isLeft && rightStepCount_ < 16)
     {
         rightAccumulator_ += force;
         rightStepCount_++;
     }
-    return (leftStepCount_ >= 15 && rightStepCount_ >= 15); // Terminé à 30 pas (15 de chaque côté)
+    return (leftStepCount_ >= 16 && rightStepCount_ >= 16); // Terminé à 32 pas (16 de chaque côté)
 }
 
 float GaitAnalyzer::computeAsymmetry(float left, float right) const

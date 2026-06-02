@@ -5,7 +5,6 @@
 #include "Hardware.h"
 #include "GaitAlgorithms.h"
 
-// Variables partagées modifiées sous interruption réseau
 volatile float leftForce = 0.0f, rightForce = 0.0f;
 volatile uint32_t leftImpactTime = 0, rightImpactTime = 0;
 volatile uint32_t leftHeartbeatTime = 0, rightHeartbeatTime = 0;
@@ -17,7 +16,6 @@ SystemState currentState = SystemState::IDLE;
 GaitAnalyzer analyzer;
 float asymmetry = 0.0f;
 
-// Callback Réception Réseau Rapide
 void onDataReceived(const uint8_t *mac, const uint8_t *data, int len)
 {
     if (len == sizeof(ImpactMessage))
@@ -50,40 +48,39 @@ void onDataReceived(const uint8_t *mac, const uint8_t *data, int len)
     }
 }
 
-// Gestionnaire Central des Changements d'États (Comportements d'Entrée)
 void transitionTo(SystemState newState)
 {
     currentState = newState;
     switch (currentState)
     {
     case SystemState::IDLE:
-        Hardware::setLEDColor(0xFF6600); // Orange lent/respiration simulé par couleur fixe
+        Hardware::setBackgroundColor(0x000000); // Noir
         Hardware::display("REPOS");
         break;
     case SystemState::DIAGNOSTIC:
-        Hardware::setLEDColor(0xFFFFFF); // Blanc Fixe
-        Hardware::display("DIAGNOSTIC", "Pret a tester");
+        Hardware::setBackgroundColor(0xFFFF00); // Jaune
+        Hardware::display("DIAGNOSTIC");
         Hardware::beep(1000, 50);
         break;
     case SystemState::CALIBRATION:
         analyzer.reset();
-        Hardware::setLEDColor(0x0066FF); // Bleu
-        Hardware::display("CALIBRATION", "Pas: 0/30");
+        Hardware::setBackgroundColor(0x0000FF); // Bleu
+        Hardware::display("CALIBRATION", "Pas : 0/32");
         Hardware::beep(1000, 50);
         delay(80);
-        Hardware::beep(1000, 50); // Bip-Bip
+        Hardware::beep(1000, 50);
         break;
     case SystemState::RUNNING_NORMAL:
-        Hardware::setLEDColor(0x00FF00); // Vert fixe
-        Hardware::display("COURSE (OK)", "Asym: --%");
-        Hardware::beep(1500, 400); // Long bip
+        Hardware::setBackgroundColor(0x00FF00); // Vert
+        Hardware::display("COURSE (OK)", "Asym : --%");
+        Hardware::beep(1500, 400);
         break;
     case SystemState::RUNNING_ALERT:
-        Hardware::setLEDColor(0xFF0000); // Rouge
+        Hardware::setBackgroundColor(0xFF0000); // Rouge
         Hardware::display("ALERTE ASYM!");
         break;
     case SystemState::PAUSE:
-        Hardware::setLEDColor(0xFF6600); // Orange Fixe
+        Hardware::setBackgroundColor(0xFF00FF); // Violet
         Hardware::display("PAUSE");
         break;
     }
@@ -91,11 +88,16 @@ void transitionTo(SystemState newState)
 
 void setup()
 {
+    Serial.begin(115200);
     Hardware::init();
     WiFi.mode(WIFI_STA);
     esp_now_init();
     esp_now_register_recv_cb(onDataReceived);
     transitionTo(SystemState::IDLE);
+
+    Serial.println();
+    Serial.print("L'ADRESSE MAC DU POIGNET EST: ");
+    Serial.println(WiFi.macAddress());
 }
 
 void loop()
@@ -105,10 +107,9 @@ void loop()
     bool btnShort = Hardware::isShortPress();
     bool btnLong = Hardware::isLongPress();
 
-    // Vérification de la connectivité (Timeout 1500ms)
     bool anklesConnected = (now - leftHeartbeatTime < 1500) && (now - rightHeartbeatTime < 1500);
 
-    // 1. Traitement des événements asynchrones liés aux impacts reçus
+    // 1. Traitement des impacts avec effet d'extinction/flash sur l'écran global
     if (hasNewImpact)
     {
         hasNewImpact = false;
@@ -116,40 +117,43 @@ void loop()
         if (currentState == SystemState::DIAGNOSTIC)
         {
             Hardware::beep(1000, 50);
-            Hardware::setLEDColor(0x000000);
-            delay(20);
-            Hardware::setLEDColor(0xFFFFFF); // Flash blanc
+            Hardware::setBackgroundColor(0x000000); // Écran Noir furtif
+            Hardware::display("DIAGNOSTIC");
+            delay(40);
+            Hardware::setBackgroundColor(0xFFFF00); // Retour au Jaune
+            Hardware::display("DIAGNOSTIC");
         }
         else if (currentState == SystemState::CALIBRATION && lastIncomingForce >= 3.0f)
         {
             bool calibDone = analyzer.addCalibrationStep(lastIncomingForce, lastIncomingIsLeft);
             char str[16];
-            sprintf(str, "Pas: %d/30", analyzer.getTotalSteps());
+            sprintf(str, "Pas: %d/32", analyzer.getTotalSteps());
+
+            Hardware::setBackgroundColor(0x000000); // Écran Noir furtif
             Hardware::display("CALIBRATION", str);
-            Hardware::setLEDColor(0x000000);
-            delay(20);
-            Hardware::setLEDColor(0x0066FF); // Flash bleu
+            delay(40);
+            Hardware::setBackgroundColor(0x0000FF); // Retour au Bleu
+            Hardware::display("CALIBRATION", str);
 
             if (calibDone)
                 transitionTo(SystemState::RUNNING_NORMAL);
         }
     }
 
-    // 2. Calcul d'analyse de foulée périodique (en mode course)
+    // 2. Calcul d'analyse de foulée
     if (currentState == SystemState::RUNNING_NORMAL || currentState == SystemState::RUNNING_ALERT)
     {
         if (!anklesConnected)
         {
-            transitionTo(SystemState::PAUSE); // Auto-pause si déconnexion
+            transitionTo(SystemState::PAUSE);
         }
         else if (now - leftImpactTime < 1500 && now - rightImpactTime < 1500)
         {
-            // Appariement d'une foulée complète si l'écart est inférieur à 600ms
             if (abs((long)(leftImpactTime - rightImpactTime)) <= 600)
             {
                 asymmetry = analyzer.computeAsymmetry(leftForce, rightForce);
                 char str[16];
-                sprintf(str, "Asym: %.1f%%", asymmetry);
+                sprintf(str, "Asym : %.1f%%", asymmetry);
 
                 if (currentState == SystemState::RUNNING_NORMAL && asymmetry > 10.0f)
                 {
@@ -165,7 +169,7 @@ void loop()
         }
     }
 
-    // 3. Logique de transition de la Machine d'État (Boutons)
+    // 3. Machine d'État
     switch (currentState)
     {
     case SystemState::IDLE:
@@ -199,5 +203,5 @@ void loop()
         break;
     }
 
-    delay(20); // Fréquence de rafraîchissement de la logique générale (50Hz)
+    delay(20);
 }

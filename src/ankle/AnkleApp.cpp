@@ -1,6 +1,7 @@
 #include "AnkleApp.h"
 #include "AppConfig.h"
 #include "ProtocolCodec.h"
+#include "NetworkConfig.h" // Inclus pour la MAC de repli
 #include <Preferences.h>
 
 AnkleApp::AnkleApp(Board &board, Imu &imu, NetworkManager &network)
@@ -18,8 +19,15 @@ void AnkleApp::setup()
 
     Preferences prefs;
     prefs.begin("pairing", true);
-    prefs.getBytes("wrist_mac", wristHubMac_, 6);
+    size_t readBytes = prefs.getBytes("wrist_mac", wristHubMac_, 6);
     prefs.end();
+
+    // CORRIGÉ : Si aucune adresse MAC valide n'est lue (mémoire Flash vierge),
+    // on applique l'adresse de repli définie dans NetworkConfig pour éviter l'envoi dans le vide.
+    if (readBytes != 6)
+    {
+        memcpy(wristHubMac_, WRIST_HUB_MAC, 6);
+    }
 
     xLastWakeTime_ = xTaskGetTickCount();
 }
@@ -27,7 +35,7 @@ void AnkleApp::setup()
 void AnkleApp::loop()
 {
     imu_.update();
-    board_.update(); // Indispensable pour rafraîchir l'état du matériel
+    board_.update(); 
     const float accel = imu_.getAccelerationMagnitude();
     const uint32_t nowMs = pdTICKS_TO_MS(xTaskGetTickCount());
 
@@ -39,12 +47,14 @@ void AnkleApp::loop()
 #else
             DeviceRole::ANKLE_RIGHT,
 #endif
-            board_.getBatteryLevel() // CORRIGÉ : Transmet la vraie valeur lue sur le matériel !
+            board_.getBatteryLevel() 
         };
         uint8_t hbBuf[HEARTBEAT_PAYLOAD_WIRE_SIZE];
         serializeHeartbeatPayload(heartbeat, hbBuf, sizeof(hbBuf));
         network_.send(wristHubMac_, hbBuf, sizeof(hbBuf));
-        lastHeartbeatSentMs = nowMs;
+        
+        // CORRIGÉ : Syntaxe rectifiée avec l'underscore variable membre correct (_)
+        lastHeartbeatSentMs_ = nowMs; 
     }
 
     auto peakOpt = detector_.processSample(accel, nowMs);

@@ -2,19 +2,22 @@
 #include <M5Unified.h>
 #include <cmath>
 
-bool M5Imu::init() {
+bool M5Imu::init()
+{
     return true;
 }
 
-void M5Imu::update() {
-    M5.update();
+void M5Imu::update()
+{
     M5.Imu.getAccelData(&accelX_, &accelY_, &accelZ_);
 }
 
-float M5Imu::getAccelerationZ() const {
+float M5Imu::getAccelerationZ() const
+{
     return accelZ_;
 }
 
-float M5Imu::getAccelerationMagnitude() const {
+float M5Imu::getAccelerationMagnitude() const
+{
     return std::sqrt(accelX_ * accelX_ + accelY_ * accelY_ + accelZ_ * accelZ_);
 }

@@ -268,7 +268,7 @@ void WristApp::loop()
     while (network_.getNextMessage(incoming))
     {
         handleIncomingImpact(incoming);
-        newImpactReceived = true; // On lève le flag pour la logique événementielle
+        newImpactReceived = true;
     }
 
     HeartbeatPayload heartbeat;
@@ -294,7 +294,7 @@ void WristApp::loop()
         lastRightImpact_ = 0.0f;
     }
 
-    // LOGIQUE ÉVÉNEMENTIELLE : Ne calcule l'asymétrie QUE si de nouvelles données viennent d'arriver
+    // LOGIQUE ÉVÉNEMENTIELLE
     if (newImpactReceived && areBothAnklesConnected() && areImpactsPairedForStride())
     {
         currentAsymmetry_ = analyzer_.computeAsymmetry(lastLeftImpact_, lastRightImpact_);
@@ -302,11 +302,18 @@ void WristApp::loop()
     else if (!areBothAnklesConnected())
     {
         currentAsymmetry_ = 0.0f;
+
+        // CORRIGÉ : Si une cheville se déconnecte pendant l'effort, on bascule de sécurité en PAUSE.
+        // Cela évite que la FSM valide une course "normale" à cause d'une asymétrie tombée à 0.
+        SystemState currentState = fsm_.getCurrentState();
+        if (currentState == SystemState::RUNNING_NORMAL || currentState == SystemState::RUNNING_ALERT)
+        {
+            fsm_.requestTransition(SystemState::PAUSE);
+        }
     }
 
     handleCalibrationTimeout();
 
-    // Remplissage de la structure de contexte découplée
     SystemContext ctx;
     ctx.btnShort = board_.consumeShortPress();
     ctx.btnLong = board_.consumeLongPress();
@@ -326,7 +333,6 @@ void WristApp::loop()
     restoreLedIfNeeded();
     handleHeartbeatTimeoutUi();
 
-    // Remplacement de vTaskDelay par vTaskDelayUntil pour corriger la dérive temporelle de l'IMU/scrutation
 #ifdef TARGET_WRIST
     vTaskDelayUntil(&xLastWakeTime_, pdMS_TO_TICKS(LOOP_PERIOD_MS));
 #else

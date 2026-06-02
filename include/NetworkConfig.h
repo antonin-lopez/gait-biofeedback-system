@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-// MAC du hub poignet — à renseigner après appairage (WiFi.macAddress() sur le module poignet).
-// Évite le broadcast FF:FF:FF:FF:FF:FF qui provoque des collisions entre coureurs.
-constexpr uint8_t WRIST_HUB_MAC[6] = {0x24, 0x0A, 0xC4, 0x12, 0x34, 0x56};
-constexpr uint32_t ESP_NOW_QUEUE_SIZE = 32;
+// CORRIGÉ : Ajout du mot-clé 'inline' (Norme C++17) pour garantir l'unicité
+// de l'instance mémoire globale du tableau à travers tout le projet.
+inline constexpr uint8_t WRIST_HUB_MAC[6] = {0x24, 0x0A, 0xC4, 0x12, 0x34, 0x56};
+inline constexpr uint32_t ESP_NOW_QUEUE_SIZE = 32;

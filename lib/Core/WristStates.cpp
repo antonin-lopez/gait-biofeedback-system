@@ -4,9 +4,8 @@
 
 namespace WristStates {
 
-void handleWristState(SystemState state, Feedback& ui, bool btnShort, bool btnLong, float currentAsymmetry) {
-    (void)btnShort;
-    (void)btnLong;
+void handleWristState(SystemState state, Feedback& ui, bool /*btnShort*/, bool /*btnLong*/,
+                      float currentAsymmetry) {
 
     switch (state) {
         case SystemState::IDLE:

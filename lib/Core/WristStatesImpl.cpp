@@ -35,14 +35,12 @@ void PauseState::bindTargets(AppState* runningNormal, AppState* idle) {
     idleTarget_ = idle;
 }
 
-void IdleState::onEnter(StateMachineInterface* fsm, Feedback& ui) {
-    (void)fsm;
+void IdleState::onEnter(StateMachineInterface* /*fsm*/, Feedback& ui) {
     ui.setLedPattern(FeedbackColor::ORANGE_BREATH);
 }
 
-void IdleState::execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) {
-    (void)ui;
-    (void)asymmetry;
+void IdleState::execute(StateMachineInterface* fsm, Feedback& /*ui*/, bool btnShort, bool btnLong,
+                        float /*asymmetry*/) {
     if (btnShort && diagnosticTarget_) {
         fsm->requestTransition(diagnosticTarget_);
     } else if (btnLong && calibrationTarget_) {
@@ -50,21 +48,15 @@ void IdleState::execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort,
     }
 }
 
-void IdleState::onExit(StateMachineInterface* fsm, Feedback& ui) {
-    (void)fsm;
-    (void)ui;
-}
+void IdleState::onExit(StateMachineInterface* /*fsm*/, Feedback& /*ui*/) {}
 
-void DiagnosticState::onEnter(StateMachineInterface* fsm, Feedback& ui) {
-    (void)fsm;
+void DiagnosticState::onEnter(StateMachineInterface* /*fsm*/, Feedback& ui) {
     ui.setLedPattern(FeedbackColor::WHITE_FIXED);
     ui.triggerBuzzerBeep(1000, 100);
 }
 
-void DiagnosticState::execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong,
-                             float asymmetry) {
-    (void)ui;
-    (void)asymmetry;
+void DiagnosticState::execute(StateMachineInterface* fsm, Feedback& /*ui*/, bool btnShort, bool btnLong,
+                             float /*asymmetry*/) {
     if (btnShort && idleTarget_) {
         fsm->requestTransition(idleTarget_);
     } else if (btnLong && calibrationTarget_) {
@@ -72,42 +64,30 @@ void DiagnosticState::execute(StateMachineInterface* fsm, Feedback& ui, bool btn
     }
 }
 
-void DiagnosticState::onExit(StateMachineInterface* fsm, Feedback& ui) {
-    (void)fsm;
-    (void)ui;
-}
+void DiagnosticState::onExit(StateMachineInterface* /*fsm*/, Feedback& /*ui*/) {}
 
-void CalibrationState::onEnter(StateMachineInterface* fsm, Feedback& ui) {
-    (void)fsm;
+void CalibrationState::onEnter(StateMachineInterface* /*fsm*/, Feedback& ui) {
     ui.setLedPattern(FeedbackColor::BLUE_FLASH);
     ui.triggerBuzzerBeep(1000, 50);
     ui.triggerBuzzerBeep(1000, 50);
 }
 
-void CalibrationState::execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong,
-                              float asymmetry) {
-    (void)ui;
-    (void)btnShort;
-    (void)asymmetry;
+void CalibrationState::execute(StateMachineInterface* fsm, Feedback& /*ui*/, bool /*btnShort*/, bool btnLong,
+                              float /*asymmetry*/) {
     if (btnLong && idleTarget_) {
         fsm->requestTransition(idleTarget_);
     }
 }
 
-void CalibrationState::onExit(StateMachineInterface* fsm, Feedback& ui) {
-    (void)fsm;
-    (void)ui;
-}
+void CalibrationState::onExit(StateMachineInterface* /*fsm*/, Feedback& /*ui*/) {}
 
-void RunningNormalState::onEnter(StateMachineInterface* fsm, Feedback& ui) {
-    (void)fsm;
+void RunningNormalState::onEnter(StateMachineInterface* /*fsm*/, Feedback& ui) {
     ui.setLedPattern(FeedbackColor::GREEN_FIXED);
     ui.triggerBuzzerBeep(1500, 100);
 }
 
-void RunningNormalState::execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong,
+void RunningNormalState::execute(StateMachineInterface* fsm, Feedback& /*ui*/, bool btnShort, bool btnLong,
                                 float asymmetry) {
-    (void)ui;
     if (btnShort && pauseTarget_) {
         fsm->requestTransition(pauseTarget_);
     } else if (btnLong && idleTarget_) {
@@ -117,20 +97,15 @@ void RunningNormalState::execute(StateMachineInterface* fsm, Feedback& ui, bool 
     }
 }
 
-void RunningNormalState::onExit(StateMachineInterface* fsm, Feedback& ui) {
-    (void)fsm;
-    (void)ui;
-}
+void RunningNormalState::onExit(StateMachineInterface* /*fsm*/, Feedback& /*ui*/) {}
 
-void RunningAlertState::onEnter(StateMachineInterface* fsm, Feedback& ui) {
-    (void)fsm;
+void RunningAlertState::onEnter(StateMachineInterface* /*fsm*/, Feedback& ui) {
     ui.setLedPattern(FeedbackColor::RED_FLASH);
     ui.triggerBuzzerBeep(2000, 200);
 }
 
-void RunningAlertState::execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong,
+void RunningAlertState::execute(StateMachineInterface* fsm, Feedback& /*ui*/, bool btnShort, bool btnLong,
                                 float asymmetry) {
-    (void)ui;
     if (btnShort && pauseTarget_) {
         fsm->requestTransition(pauseTarget_);
     } else if (btnLong && idleTarget_) {
@@ -140,19 +115,14 @@ void RunningAlertState::execute(StateMachineInterface* fsm, Feedback& ui, bool b
     }
 }
 
-void RunningAlertState::onExit(StateMachineInterface* fsm, Feedback& ui) {
-    (void)fsm;
-    (void)ui;
-}
+void RunningAlertState::onExit(StateMachineInterface* /*fsm*/, Feedback& /*ui*/) {}
 
-void PauseState::onEnter(StateMachineInterface* fsm, Feedback& ui) {
-    (void)fsm;
+void PauseState::onEnter(StateMachineInterface* /*fsm*/, Feedback& ui) {
     ui.setLedPattern(FeedbackColor::ORANGE_FIXED);
 }
 
-void PauseState::execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort, bool btnLong, float asymmetry) {
-    (void)ui;
-    (void)asymmetry;
+void PauseState::execute(StateMachineInterface* fsm, Feedback& /*ui*/, bool btnShort, bool btnLong,
+                         float /*asymmetry*/) {
     if (btnShort && runningNormalTarget_) {
         fsm->requestTransition(runningNormalTarget_);
     } else if (btnLong && idleTarget_) {
@@ -160,7 +130,4 @@ void PauseState::execute(StateMachineInterface* fsm, Feedback& ui, bool btnShort
     }
 }
 
-void PauseState::onExit(StateMachineInterface* fsm, Feedback& ui) {
-    (void)fsm;
-    (void)ui;
-}
+void PauseState::onExit(StateMachineInterface* /*fsm*/, Feedback& /*ui*/) {}

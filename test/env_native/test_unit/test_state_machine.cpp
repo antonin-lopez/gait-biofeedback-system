@@ -4,9 +4,6 @@
 #include "../../../lib/HAL/Mock/MockFeedback.h"
 #include "../../../include/Types.h"
 
-void setUp() {}
-void tearDown() {}
-
 static void bindAllStates(IdleState& idle, DiagnosticState& diagnostic, CalibrationState& calibration,
                           RunningNormalState& runningNormal, RunningAlertState& runningAlert, PauseState& pause) {
     idle.bindTargets(&diagnostic, &calibration);
@@ -66,12 +63,4 @@ void test_running_normal_long_press_returns_to_idle() {
     fsm.update(ui, false, true, 0.0f);
 
     TEST_ASSERT_EQUAL(SystemState::IDLE, fsm.getCurrentState());
-}
-
-int main() {
-    UNITY_BEGIN();
-    RUN_TEST(test_initial_state_is_idle);
-    RUN_TEST(test_calibration_completes_to_running_normal);
-    RUN_TEST(test_running_normal_long_press_returns_to_idle);
-    return UNITY_END();
 }

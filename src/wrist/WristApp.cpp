@@ -47,6 +47,8 @@ WristApp::WristApp(Board& board, Feedback& feedback, NetworkManager& network)
       lastDebounceChangeMs_(0),
       longPressEmitted_(false),
       previousFsmState_(SystemState::IDLE),
+      lastDisplayedAsymmetry_(-1.0f),
+      lastDisplayUpdateMs_(0),
       ledRestoreAt_(0),
       ledBasePattern_(FeedbackColor::ORANGE_BREATH),
       lastCalibrationActivityMs_(0) {
@@ -63,9 +65,9 @@ void WristApp::bindStateTargets() {
 }
 
 void WristApp::handleHardwareInitFailure() {
-    for (int i = 0; i < 15; ++i) {
+    for (uint8_t i = 0; i < FAULT_BLINK_COUNT; ++i) {
         feedback_.setLedPattern(FeedbackColor::RED_FLASH);
-        vTaskDelay(pdMS_TO_TICKS(200));
+        vTaskDelay(pdMS_TO_TICKS(FAULT_BLINK_DELAY_MS));
     }
     esp_restart();
 }
@@ -113,9 +115,20 @@ void WristApp::onStateEntered(SystemState entered, SystemState previous) {
     }
 }
 
-void WristApp::updateDisplayForState(SystemState state) {
-    feedback_.showStatusLine(systemStateLabel(state));
-    feedback_.showAsymmetryPercent(currentAsymmetry_);
+void WristApp::updateDisplayForState(SystemState state, bool stateChanged) {
+    const uint32_t now = millis();
+    const bool asymmetryChanged = (currentAsymmetry_ != lastDisplayedAsymmetry_);
+    const bool refreshDue = (now - lastDisplayUpdateMs_) >= DISPLAY_REFRESH_INTERVAL_MS;
+
+    if (stateChanged) {
+        feedback_.showStatusLine(systemStateLabel(state));
+    }
+
+    if (stateChanged || asymmetryChanged || refreshDue) {
+        feedback_.showAsymmetryPercent(currentAsymmetry_);
+        lastDisplayedAsymmetry_ = currentAsymmetry_;
+        lastDisplayUpdateMs_ = now;
+    }
 }
 
 void WristApp::pulseLed(FeedbackColor flashColor, FeedbackColor basePattern, uint32_t durationMs) {
@@ -258,12 +271,13 @@ void WristApp::loop() {
     fsm_.update(feedback_, btnShort, btnLong, currentAsymmetry_);
 
     const SystemState newState = fsm_.getCurrentState();
-    if (newState != previousFsmState_) {
+    const bool stateChanged = (newState != previousFsmState_);
+    if (stateChanged) {
         onStateEntered(newState, previousFsmState_);
         previousFsmState_ = newState;
     }
 
-    updateDisplayForState(newState);
+    updateDisplayForState(newState, stateChanged);
     restoreLedIfNeeded();
 
     vTaskDelay(pdMS_TO_TICKS(LOOP_PERIOD_MS));

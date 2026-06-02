@@ -39,13 +39,15 @@ private:
     uint32_t lastDebounceChangeMs_;
     bool longPressEmitted_;
     SystemState previousFsmState_;
+    float lastDisplayedAsymmetry_;
+    uint32_t lastDisplayUpdateMs_;
     uint32_t ledRestoreAt_;
     FeedbackColor ledBasePattern_;
     uint32_t lastCalibrationActivityMs_;
 
     void bindStateTargets();
     void onStateEntered(SystemState entered, SystemState previous);
-    void updateDisplayForState(SystemState state);
+    void updateDisplayForState(SystemState state, bool stateChanged);
     void pulseLed(FeedbackColor flashColor, FeedbackColor basePattern, uint32_t durationMs);
     void restoreLedIfNeeded();
     void processCalibrationImpact(float peak, uint8_t side);

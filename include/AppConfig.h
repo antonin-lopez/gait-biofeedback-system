@@ -19,3 +19,6 @@ constexpr float MIN_IMPACT_FORCE_G = 3.0f;
 constexpr float CALIBRATION_STEP_MIN_FORCE_G = 3.0f;
 constexpr uint32_t CALIBRATION_LED_PULSE_MS = 80;
 constexpr uint32_t DIAGNOSTIC_LED_PULSE_MS = 80;
+constexpr uint8_t FAULT_BLINK_COUNT = 15;
+constexpr uint32_t FAULT_BLINK_DELAY_MS = 200;
+constexpr uint32_t DISPLAY_REFRESH_INTERVAL_MS = 500;

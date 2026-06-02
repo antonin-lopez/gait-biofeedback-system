@@ -21,10 +21,10 @@ void AnkleApp::setup() {
 
 void AnkleApp::loop() {
     imu_.update();
-    const float accelZ = imu_.getAccelerationZ();
+    const float accel = imu_.getAccelerationMagnitude();
 
     float outPeak = 0.0f;
-    if (detector_.processSample(accelZ, millis(), outPeak)) {
+    if (detector_.processSample(accel, millis(), outPeak)) {
         ImpactPayload payload;
         payload.peakDeceleration = outPeak;
         payload.seqNum = seqNum_++;

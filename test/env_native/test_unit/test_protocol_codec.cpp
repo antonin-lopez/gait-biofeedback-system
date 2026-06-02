@@ -2,9 +2,6 @@
 #include "../../../include/Protocol.h"
 #include "../../../lib/network/ProtocolCodec.h"
 
-void setUp() {}
-void tearDown() {}
-
 void test_serialize_deserialize_round_trip() {
     ImpactPayload original;
     original.peakDeceleration = 12.5f;
@@ -26,11 +23,4 @@ void test_deserialize_rejects_short_buffer() {
     uint8_t buffer[IMPACT_PAYLOAD_WIRE_SIZE] = {};
     ImpactPayload out;
     TEST_ASSERT_FALSE(deserializeImpactPayload(buffer, IMPACT_PAYLOAD_WIRE_SIZE - 1, out));
-}
-
-int main() {
-    UNITY_BEGIN();
-    RUN_TEST(test_serialize_deserialize_round_trip);
-    RUN_TEST(test_deserialize_rejects_short_buffer);
-    return UNITY_END();
 }

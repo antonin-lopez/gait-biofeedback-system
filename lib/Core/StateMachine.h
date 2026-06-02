@@ -29,10 +29,12 @@ private:
 
 public:
     StateMachine(IdleState& idle, DiagnosticState& diagnostic, CalibrationState& calibration,
-                 RunningNormalState& runningNormal, RunningAlertState& runningAlert, PauseState& pause);
+                 RunningNormalState& runningNormal, RunningAlertState& runningAlert, PauseState& pause,
+                 Feedback& ui);
     ~StateMachine() = default;
 
     void requestTransition(AppState* target) override;
+    void forceTransition(AppState* target, Feedback& ui);
     SystemState getCurrentState() const override;
 
     void update(Feedback& ui, bool btnShort, bool btnLong, float asymmetry);

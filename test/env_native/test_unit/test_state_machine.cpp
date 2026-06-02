@@ -1,6 +1,6 @@
 #include <unity.h>
-#include "../../../lib/core/StateMachine.h"
-#include "../../../lib/core/WristStatesImpl.h"
+#include "../../../lib/Core/StateMachine.h"
+#include "../../../lib/Core/WristStatesImpl.h"
 #include "../../../lib/HAL/Mock/MockFeedback.h"
 #include "../../../include/Types.h"
 
@@ -22,9 +22,11 @@ void test_initial_state_is_idle() {
     RunningAlertState runningAlert;
     PauseState pause;
     bindAllStates(idle, diagnostic, calibration, runningNormal, runningAlert, pause);
-    StateMachine fsm(idle, diagnostic, calibration, runningNormal, runningAlert, pause);
+    MockFeedback ui;
+    StateMachine fsm(idle, diagnostic, calibration, runningNormal, runningAlert, pause, ui);
 
     TEST_ASSERT_EQUAL(SystemState::IDLE, fsm.getCurrentState());
+    TEST_ASSERT_EQUAL(FeedbackColor::ORANGE_BREATH, ui.getLastColor());
 }
 
 void test_calibration_completes_to_running_normal() {
@@ -35,8 +37,8 @@ void test_calibration_completes_to_running_normal() {
     RunningAlertState runningAlert;
     PauseState pause;
     bindAllStates(idle, diagnostic, calibration, runningNormal, runningAlert, pause);
-    StateMachine fsm(idle, diagnostic, calibration, runningNormal, runningAlert, pause);
     MockFeedback ui;
+    StateMachine fsm(idle, diagnostic, calibration, runningNormal, runningAlert, pause, ui);
 
     fsm.requestTransition(&calibration);
     fsm.update(ui, false, false, 0.0f);
@@ -45,6 +47,8 @@ void test_calibration_completes_to_running_normal() {
     fsm.update(ui, false, false, 0.0f);
 
     TEST_ASSERT_EQUAL(SystemState::RUNNING_NORMAL, fsm.getCurrentState());
+    TEST_ASSERT_EQUAL(FeedbackColor::GREEN_FIXED, ui.getLastColor());
+    TEST_ASSERT_EQUAL(1500u, ui.getLastFrequencyHz());
 }
 
 void test_running_normal_long_press_returns_to_idle() {
@@ -55,8 +59,8 @@ void test_running_normal_long_press_returns_to_idle() {
     RunningAlertState runningAlert;
     PauseState pause;
     bindAllStates(idle, diagnostic, calibration, runningNormal, runningAlert, pause);
-    StateMachine fsm(idle, diagnostic, calibration, runningNormal, runningAlert, pause);
     MockFeedback ui;
+    StateMachine fsm(idle, diagnostic, calibration, runningNormal, runningAlert, pause, ui);
 
     fsm.requestTransition(&runningNormal);
     fsm.update(ui, false, false, 0.0f);

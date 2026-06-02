@@ -22,17 +22,36 @@ void AnkleApp::setup() {
 void AnkleApp::loop() {
     imu_.update();
     const float accel = imu_.getAccelerationMagnitude();
+    const uint32_t nowMs = pdTICKS_TO_MS(xTaskGetTickCount());
+
+    if ((nowMs - lastHeartbeatSentMs_) >= HEARTBEAT_SEND_INTERVAL_MS) {
+        HeartbeatPayload heartbeat{};
+#ifdef IS_LEFT_ANKLE
+        heartbeat.deviceRole = DeviceRole::ANKLE_LEFT;
+#else
+        heartbeat.deviceRole = DeviceRole::ANKLE_RIGHT;
+#endif
+        heartbeat.batteryLevel = 0;
+
+        uint8_t heartbeatBuffer[HEARTBEAT_PAYLOAD_WIRE_SIZE];
+        const size_t heartbeatLen =
+            serializeHeartbeatPayload(heartbeat, heartbeatBuffer, sizeof(heartbeatBuffer));
+        if (heartbeatLen == HEARTBEAT_PAYLOAD_WIRE_SIZE) {
+            network_.send(WRIST_HUB_MAC, heartbeatBuffer, heartbeatLen);
+            lastHeartbeatSentMs_ = nowMs;
+        }
+    }
 
     float outPeak = 0.0f;
-    if (detector_.processSample(accel, millis(), outPeak)) {
+    if (detector_.processSample(accel, nowMs, outPeak)) {
         ImpactPayload payload;
         payload.peakDeceleration = outPeak;
         payload.seqNum = seqNum_++;
 
 #ifdef IS_LEFT_ANKLE
-        payload.footSide = static_cast<uint8_t>(FootSide::LEFT);
+        payload.footSide = FootSide::LEFT;
 #else
-        payload.footSide = static_cast<uint8_t>(FootSide::RIGHT);
+        payload.footSide = FootSide::RIGHT;
 #endif
 
         uint8_t wireBuffer[IMPACT_PAYLOAD_WIRE_SIZE];

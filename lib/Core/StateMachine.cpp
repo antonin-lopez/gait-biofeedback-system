@@ -4,7 +4,8 @@
 #include "Feedback.h"
 
 StateMachine::StateMachine(IdleState& idle, DiagnosticState& diagnostic, CalibrationState& calibration,
-                           RunningNormalState& runningNormal, RunningAlertState& runningAlert, PauseState& pause)
+                           RunningNormalState& runningNormal, RunningAlertState& runningAlert, PauseState& pause,
+                           Feedback& ui)
     : idleState_(idle),
       diagnosticState_(diagnostic),
       calibrationState_(calibration),
@@ -14,6 +15,7 @@ StateMachine::StateMachine(IdleState& idle, DiagnosticState& diagnostic, Calibra
       transitionRequested_(false),
       pendingState_(nullptr) {
     currentState_ = &idleState_;
+    currentState_->onEnter(this, ui);
 }
 
 void StateMachine::requestTransition(AppState* target) {
@@ -23,6 +25,13 @@ void StateMachine::requestTransition(AppState* target) {
 
     transitionRequested_ = true;
     pendingState_ = target;
+}
+
+void StateMachine::forceTransition(AppState* target, Feedback& ui) {
+    if (!target) {
+        return;
+    }
+    performTransition(target, ui);
 }
 
 SystemState StateMachine::getCurrentState() const {

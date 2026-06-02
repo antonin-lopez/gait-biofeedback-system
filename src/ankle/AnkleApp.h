@@ -12,6 +12,7 @@ private:
     NetworkManager& network_;
     ImpactDetector detector_;
     uint32_t seqNum_;
+    uint32_t lastHeartbeatSentMs_ = 0;
 
 public:
     AnkleApp(Imu& imu, NetworkManager& network);

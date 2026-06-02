@@ -3,8 +3,7 @@
 #include <algorithm>
 
 ImpactDetector::ImpactDetector(float thresholdG)
-    : previousVal_(0.0f),
-      thresholdG_(thresholdG),
+    : thresholdG_(thresholdG),
       isInsideImpact_(false),
       currentPeak_(0.0f),
       lastImpactEndMs_(0) {}
@@ -13,7 +12,6 @@ bool ImpactDetector::processSample(float currentSample, uint32_t nowMs, float& o
     bool impactEnded = false;
 
     if (!isInsideImpact_ && (nowMs - lastImpactEndMs_) < IMPACT_COOLDOWN_MS) {
-        previousVal_ = currentSample;
         return false;
     }
 
@@ -34,6 +32,5 @@ bool ImpactDetector::processSample(float currentSample, uint32_t nowMs, float& o
         }
     }
 
-    previousVal_ = currentSample;
     return impactEnded;
 }

@@ -70,9 +70,10 @@ size_t serializeImpactPayload(const ImpactPayload& payload, uint8_t* buffer, siz
         return 0;
     }
 
-    writeUint32BE(buffer, floatToNetworkBits(payload.peakDeceleration));
-    buffer[4] = payload.footSide;
-    writeUint32BE(buffer + 5, payload.seqNum);
+    buffer[0] = PROTOCOL_VERSION;
+    writeUint32BE(buffer + 1, floatToNetworkBits(payload.peakDeceleration));
+    buffer[5] = static_cast<uint8_t>(payload.footSide);
+    writeUint32BE(buffer + 6, payload.seqNum);
 
     return IMPACT_PAYLOAD_WIRE_SIZE;
 }
@@ -82,9 +83,37 @@ bool deserializeImpactPayload(const uint8_t* buffer, size_t length, ImpactPayloa
         return false;
     }
 
-    out.peakDeceleration = networkBitsToFloat(readUint32BE(buffer));
-    out.footSide = buffer[4];
-    out.seqNum = readUint32BE(buffer + 5);
+    if (buffer[0] != PROTOCOL_VERSION) {
+        return false;
+    }
 
+    out.peakDeceleration = networkBitsToFloat(readUint32BE(buffer + 1));
+    out.footSide = static_cast<FootSide>(buffer[5]);
+    out.seqNum = readUint32BE(buffer + 6);
+
+    return true;
+}
+
+size_t serializeHeartbeatPayload(const HeartbeatPayload& payload, uint8_t* buffer, size_t capacity) {
+    if (!buffer || capacity < HEARTBEAT_PAYLOAD_WIRE_SIZE) {
+        return 0;
+    }
+
+    buffer[0] = PROTOCOL_VERSION;
+    buffer[1] = static_cast<uint8_t>(payload.deviceRole);
+    buffer[2] = payload.batteryLevel;
+    return HEARTBEAT_PAYLOAD_WIRE_SIZE;
+}
+
+bool deserializeHeartbeatPayload(const uint8_t* buffer, size_t length, HeartbeatPayload& out) {
+    if (!buffer || length < HEARTBEAT_PAYLOAD_WIRE_SIZE) {
+        return false;
+    }
+    if (buffer[0] != PROTOCOL_VERSION) {
+        return false;
+    }
+
+    out.deviceRole = static_cast<DeviceRole>(buffer[1]);
+    out.batteryLevel = buffer[2];
     return true;
 }

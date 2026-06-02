@@ -7,8 +7,11 @@ bool M5Board::init() {
     return true;
 }
 
-bool M5Board::isButtonPressed() const {
+void M5Board::update() {
     M5.update();
+}
+
+bool M5Board::isButtonPressed() const {
     return M5.BtnA.isPressed();
 }
 

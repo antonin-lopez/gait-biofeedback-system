@@ -4,6 +4,8 @@ bool MockBoard::init() {
     return true;
 }
 
+void MockBoard::update() {}
+
 bool MockBoard::isButtonPressed() const {
     return simulatedButtonPressed_;
 }

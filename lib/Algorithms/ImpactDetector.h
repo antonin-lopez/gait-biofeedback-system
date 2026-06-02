@@ -5,7 +5,6 @@
 // Détection de pic d'impact sur l'axe vertical (fenêtre glissante).
 class ImpactDetector {
 private:
-    float previousVal_;
     float thresholdG_;
     bool isInsideImpact_;
     float currentPeak_;

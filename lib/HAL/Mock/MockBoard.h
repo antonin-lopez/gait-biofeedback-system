@@ -9,6 +9,7 @@ private:
 
 public:
     bool init() override;
+    void update() override;
     bool isButtonPressed() const override;
     uint8_t getBatteryLevel() const override;
     void sleep(uint32_t durationMs) override;

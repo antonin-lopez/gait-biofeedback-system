@@ -12,6 +12,10 @@ void GaitAnalyzer::resetCalibration() {
 }
 
 bool GaitAnalyzer::addCalibrationStep(float peakForce, FootSide side) {
+    if (calibStepCount_ >= CALIBRATION_REQUIRED_STEPS) {
+        return true;
+    }
+
     if (side == FootSide::LEFT) {
         leftAccumulator_ += peakForce;
         leftStepCount_++;

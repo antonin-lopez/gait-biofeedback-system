@@ -1,10 +1,10 @@
 #include <Arduino.h>
 #include "M5Imu.h"
-#include "EspNowManager.h"
+#include "AnkleEspNowManager.h"
 #include "AnkleApp.h"
 
 M5Imu realImu;
-EspNowManager realNet;
+AnkleEspNowManager realNet;
 AnkleApp app(realImu, realNet);
 
 void setup() {

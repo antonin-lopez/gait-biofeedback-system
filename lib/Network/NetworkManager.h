@@ -18,4 +18,8 @@ public:
         (void)outPayload;
         return false;
     }
+    virtual bool getNextHeartbeat(HeartbeatPayload& outHeartbeat) {
+        (void)outHeartbeat;
+        return false;
+    }
 };

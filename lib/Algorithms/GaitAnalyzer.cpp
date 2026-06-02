@@ -41,3 +41,21 @@ bool GaitAnalyzer::addCalibrationStep(float peakForce, FootSide side)
 
     return false;
 }
+
+void GaitAnalyzer::setBaselines(float left, float right)
+{
+    leftBaseline_ = left;
+    rightBaseline_ = right;
+}
+
+float GaitAnalyzer::computeAsymmetry(float leftPeak, float rightPeak) const
+{
+    if (leftPeak < MIN_IMPACT_FORCE_G || rightPeak < MIN_IMPACT_FORCE_G)
+    {
+        return 0.0f;
+    }
+
+    const float diff = std::abs(leftPeak - rightPeak);
+    const float maxVal = std::max(leftPeak, rightPeak);
+    return (diff / maxVal) * 100.0f;
+}

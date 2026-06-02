@@ -3,22 +3,20 @@
 #include "Feedback.h"
 #include "../../include/AppConfig.h"
 
-// --- Suppression complète de toutes les anciennes fonctions de type bindTargets() ---
-
 void IdleState::onEnter(StateMachineInterface *, Feedback &ui) { ui.setLedPattern(FeedbackColor::ORANGE_BREATH); }
-void IdleState::execute(StateMachineInterface *fsm, Feedback &fire, const SystemContext &ctx)
+void IdleState::execute(StateMachineInterface *fsm, Feedback &, const SystemContext &ctx)
 {
     if (ctx.btnShort)
         fsm->requestTransition(SystemState::DIAGNOSTIC);
     else if (ctx.btnLong)
         fsm->requestTransition(SystemState::CALIBRATION);
 }
-void IdleState::onExit(StateMachineInterface *, Feedback *) {}
+void IdleState::onExit(StateMachineInterface *, Feedback &) {}
 
 void DiagnosticState::onEnter(StateMachineInterface *, Feedback &ui)
 {
     ui.setLedPattern(FeedbackColor::WHITE_FIXED);
-    ui.triggerBuzzerBeep(1000, 100);
+    ui.triggerBuzzerBeep(DIAGNOSTIC_BEEP_HZ, DIAGNOSTIC_BEEP_MS);
 }
 void DiagnosticState::execute(StateMachineInterface *fsm, Feedback &, const SystemContext &ctx)
 {
@@ -27,7 +25,7 @@ void DiagnosticState::execute(StateMachineInterface *fsm, Feedback &, const Syst
     else if (ctx.btnLong)
         fsm->requestTransition(SystemState::CALIBRATION);
 }
-void DiagnosticState::onExit(StateMachineInterface *, Feedback *) {}
+void DiagnosticState::onExit(StateMachineInterface *, Feedback &) {}
 
 void CalibrationState::onEnter(StateMachineInterface *, Feedback &ui)
 {
@@ -39,7 +37,7 @@ void CalibrationState::execute(StateMachineInterface *fsm, Feedback &, const Sys
     if (ctx.btnLong)
         fsm->requestTransition(SystemState::IDLE);
 }
-void CalibrationState::onExit(StateMachineInterface *, Feedback *) {}
+void CalibrationState::onExit(StateMachineInterface *, Feedback &) {}
 
 void RunningNormalState::onEnter(StateMachineInterface *, Feedback &ui)
 {
@@ -55,7 +53,7 @@ void RunningNormalState::execute(StateMachineInterface *fsm, Feedback &, const S
     else if (ctx.asymmetry > ASYMMETRY_THRESHOLD)
         fsm->requestTransition(SystemState::RUNNING_ALERT);
 }
-void RunningNormalState::onExit(StateMachineInterface *, Feedback *) {}
+void RunningNormalState::onExit(StateMachineInterface *, Feedback &) {}
 
 void RunningAlertState::onEnter(StateMachineInterface *, Feedback &ui)
 {
@@ -71,7 +69,7 @@ void RunningAlertState::execute(StateMachineInterface *fsm, Feedback &, const Sy
     else if (ctx.asymmetry <= (ASYMMETRY_THRESHOLD * ASYMMETRY_HYSTERESIS_RATIO))
         fsm->requestTransition(SystemState::RUNNING_NORMAL);
 }
-void RunningAlertState::onExit(StateMachineInterface *, Feedback *) {}
+void RunningAlertState::onExit(StateMachineInterface *, Feedback &) {}
 
 void PauseState::onEnter(StateMachineInterface *, Feedback &ui) { ui.setLedPattern(FeedbackColor::ORANGE_FIXED); }
 void PauseState::execute(StateMachineInterface *fsm, Feedback &, const SystemContext &ctx)
@@ -81,4 +79,4 @@ void PauseState::execute(StateMachineInterface *fsm, Feedback &, const SystemCon
     else if (ctx.btnLong)
         fsm->requestTransition(SystemState::IDLE);
 }
-void PauseState::onExit(StateMachineInterface *, Feedback *) {}
+void PauseState::onExit(StateMachineInterface *, Feedback &) {}

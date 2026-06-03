@@ -13,6 +13,27 @@ uint32_t seqNum = 0;
 void setup()
 {
     Hardware::init();
+
+    M5.Lcd.fillScreen(0x000000);
+    M5.Lcd.setTextColor(0xFFFFFF);
+    M5.Lcd.setTextSize(5);
+
+    int w = M5.Lcd.width();
+    int h = M5.Lcd.height();
+    const char *sideText = "";
+
+#if ANKLE_SIDE == 0
+    sideText = "GAUCHE";
+#else
+    sideText = "DROITE";
+#endif
+
+    int textW = M5.Lcd.textWidth(sideText);
+    int textH = M5.Lcd.fontHeight();
+
+    M5.Lcd.setCursor((w - textW) / 2, (h - textH) / 2);
+    M5.Lcd.printf("%s", sideText);
+
     WiFi.mode(WIFI_STA);
     if (esp_now_init() != ESP_OK)
         esp_restart();

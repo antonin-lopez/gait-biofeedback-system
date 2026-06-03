@@ -12,9 +12,74 @@ volatile bool hasNewImpact = false;
 volatile float lastIncomingForce = 0.0f;
 volatile bool lastIncomingIsLeft = false;
 
+volatile uint8_t leftBattery = 0;
+volatile uint8_t rightBattery = 0;
+
 SystemState currentState = SystemState::IDLE;
 GaitAnalyzer analyzer;
 float asymmetry = 0.0f;
+uint32_t lastDisplayTime = 0;
+
+// ─── FONCTION DE RENDU CENTRALISÉE (NETTOYÉE DE "forceBlackBg") ───
+void updateDisplay(const char *dataOverride = nullptr)
+{
+    uint32_t now = millis();
+
+    int leftBatParam = -2;
+    int rightBatParam = -2;
+
+    if (currentState == SystemState::DIAGNOSTIC || currentState == SystemState::PAUSE)
+    {
+        leftBatParam = (now - leftHeartbeatTime < 1500) ? leftBattery : -1;
+        rightBatParam = (now - rightHeartbeatTime < 1500) ? rightBattery : -1;
+    }
+
+    const char *title = "";
+    const char *data = "";
+    uint32_t bgColor = 0x000000;
+
+    switch (currentState)
+    {
+    case SystemState::IDLE:
+        title = "REPOS";
+        data = "";
+        bgColor = 0x000000;
+        break;
+    case SystemState::DIAGNOSTIC:
+        title = "DIAGNOSTIC";
+        data = "";
+        bgColor = 0xFFFF00; // Jaune
+        break;
+    case SystemState::CALIBRATION:
+        title = "CALIBRATION";
+        data = "PAS: 0/32";
+        bgColor = 0x0000FF; // Bleu
+        break;
+    case SystemState::RUNNING_NORMAL:
+        title = "COURSE (OK)";
+        data = "Asym : --%";
+        bgColor = 0x00FF00; // Vert
+        break;
+    case SystemState::RUNNING_ALERT:
+        title = "ALERTE ASYM!";
+        data = "";
+        bgColor = 0xFF0000; // Rouge
+        break;
+    case SystemState::PAUSE:
+        title = "PAUSE";
+        data = "";
+        bgColor = 0xFF00FF; // Violet
+        break;
+    }
+
+    if (dataOverride != nullptr)
+    {
+        data = dataOverride;
+    }
+
+    Hardware::setBackgroundColor(bgColor);
+    Hardware::display(title, data, leftBatParam, rightBatParam);
+}
 
 void onDataReceived(const uint8_t *mac, const uint8_t *data, int len)
 {
@@ -42,48 +107,38 @@ void onDataReceived(const uint8_t *mac, const uint8_t *data, int len)
         HeartbeatMessage hb;
         memcpy(&hb, data, sizeof(hb));
         if (hb.role == DeviceRole::ANKLE_LEFT)
+        {
             leftHeartbeatTime = millis();
+            leftBattery = hb.batteryLevel;
+        }
         if (hb.role == DeviceRole::ANKLE_RIGHT)
+        {
             rightHeartbeatTime = millis();
+            rightBattery = hb.batteryLevel;
+        }
     }
 }
 
 void transitionTo(SystemState newState)
 {
     currentState = newState;
+    updateDisplay();
+
     switch (currentState)
     {
-    case SystemState::IDLE:
-        Hardware::setBackgroundColor(0x000000); // Noir
-        Hardware::display("REPOS");
-        break;
     case SystemState::DIAGNOSTIC:
-        Hardware::setBackgroundColor(0xFFFF00); // Jaune
-        Hardware::display("DIAGNOSTIC");
         Hardware::beep(1000, 50);
         break;
     case SystemState::CALIBRATION:
-        analyzer.reset();
-        Hardware::setBackgroundColor(0x0000FF); // Bleu
-        Hardware::display("CALIBRATION", "Pas : 0/32");
         Hardware::beep(1000, 50);
         delay(80);
         Hardware::beep(1000, 50);
         break;
     case SystemState::RUNNING_NORMAL:
-        Hardware::setBackgroundColor(0x00FF00); // Vert
-        Hardware::display("COURSE (OK)", "Asym : --%");
         Hardware::beep(1500, 400);
         break;
-    case SystemState::RUNNING_ALERT:
-        Hardware::setBackgroundColor(0xFF0000); // Rouge
-        Hardware::display("ALERTE ASYM!");
-        break;
-    case SystemState::PAUSE:
-        Hardware::setBackgroundColor(0xFF00FF); // Violet
-        Hardware::display("PAUSE");
-        break;
     }
+    lastDisplayTime = millis();
 }
 
 void setup()
@@ -94,10 +149,6 @@ void setup()
     esp_now_init();
     esp_now_register_recv_cb(onDataReceived);
     transitionTo(SystemState::IDLE);
-
-    Serial.println();
-    Serial.print("L'ADRESSE MAC DU POIGNET EST: ");
-    Serial.println(WiFi.macAddress());
 }
 
 void loop()
@@ -108,8 +159,9 @@ void loop()
     bool btnLong = Hardware::isLongPress();
 
     bool anklesConnected = (now - leftHeartbeatTime < 1500) && (now - rightHeartbeatTime < 1500);
+    bool refreshDue = (now - lastDisplayTime >= 500);
 
-    // 1. Traitement des impacts avec effet d'extinction/flash sur l'écran global
+    // 1. Traitement des événements d'impacts (Nouveau comportement demandé)
     if (hasNewImpact)
     {
         hasNewImpact = false;
@@ -117,30 +169,31 @@ void loop()
         if (currentState == SystemState::DIAGNOSTIC)
         {
             Hardware::beep(1000, 50);
-            Hardware::setBackgroundColor(0x000000); // Écran Noir furtif
-            Hardware::display("DIAGNOSTIC");
-            delay(40);
-            Hardware::setBackgroundColor(0xFFFF00); // Retour au Jaune
-            Hardware::display("DIAGNOSTIC");
+
+            // On écrit textuellement "GAUCHE" ou "DROITE" selon l'origine de l'impact
+            const char *impactSide = lastIncomingIsLeft ? "GAUCHE" : "DROITE";
+            updateDisplay(impactSide);
+
+            delay(200); // Maintien de l'écriture pendant 200ms
+
+            updateDisplay(); // Restaure l'écran jaune par défaut ("Pret a tester")
+            lastDisplayTime = now;
         }
         else if (currentState == SystemState::CALIBRATION && lastIncomingForce >= 3.0f)
         {
             bool calibDone = analyzer.addCalibrationStep(lastIncomingForce, lastIncomingIsLeft);
             char str[16];
-            sprintf(str, "Pas: %d/32", analyzer.getTotalSteps());
+            sprintf(str, "PAS: %d/32", analyzer.getTotalSteps());
 
-            Hardware::setBackgroundColor(0x000000); // Écran Noir furtif
-            Hardware::display("CALIBRATION", str);
-            delay(40);
-            Hardware::setBackgroundColor(0x0000FF); // Retour au Bleu
-            Hardware::display("CALIBRATION", str);
+            // PLUS DE FLASH : On écrit juste le nouveau score directement sur fond bleu
+            updateDisplay(str);
 
             if (calibDone)
                 transitionTo(SystemState::RUNNING_NORMAL);
         }
     }
 
-    // 2. Calcul d'analyse de foulée
+    // 2. Traitement des calculs de course continus ou rafraîchissement périodique
     if (currentState == SystemState::RUNNING_NORMAL || currentState == SystemState::RUNNING_ALERT)
     {
         if (!anklesConnected)
@@ -164,8 +217,16 @@ void loop()
                 {
                     transitionTo(SystemState::RUNNING_NORMAL);
                 }
-                Hardware::display(currentState == SystemState::RUNNING_NORMAL ? "COURSE (OK)" : "ALERTE ASYM!", str);
+                updateDisplay(str);
             }
+        }
+    }
+    else if (currentState == SystemState::DIAGNOSTIC || currentState == SystemState::PAUSE)
+    {
+        if (refreshDue)
+        {
+            updateDisplay();
+            lastDisplayTime = now;
         }
     }
 

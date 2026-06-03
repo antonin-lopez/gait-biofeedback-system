@@ -42,51 +42,78 @@ std::optional<float> ImpactDetector::processSample(float currentSample, uint32_t
     return std::nullopt;
 }
 
-/**
- * @brief Remet à zéro les données d'analyse (compteurs et sommes).
- */
 void GaitAnalyzer::reset()
 {
     leftStepCount_ = rightStepCount_ = 0;
     leftAccumulator_ = rightAccumulator_ = 0.0f;
+
+    // Réinitialisation des buffers de course
+    leftBufferIdx_ = rightBufferIdx_ = 0;
+    leftBufferCount_ = rightBufferCount_ = 0;
+    for (uint8_t i = 0; i < BUFFER_SIZE; ++i)
+    {
+        leftBuffer_[i] = 0.0f;
+        rightBuffer_[i] = 0.0f;
+    }
 }
 
-/**
- * @brief Enregistre un pas pendant la calibration.
- * @param force Force maximale de l'impact reçu.
- * @param isLeft True si l'impact vient de la cheville gauche, False si droite.
- * @return true si la calibration est terminée (16 pas de chaque côté = 32 pas au total), sinon false.
- */
 bool GaitAnalyzer::addCalibrationStep(float force, bool isLeft)
 {
-    // Si c'est le pied gauche et qu'on n'a pas encore atteint les 16 pas requis
     if (isLeft && leftStepCount_ < 16)
     {
-        leftAccumulator_ += force; // On ajoute la force à la somme totale gauche
-        leftStepCount_++;          // On incrémente le compteur de pas gauches
+        leftAccumulator_ += force;
+        leftStepCount_++;
     }
-    // Si c'est le pied droit et qu'on n'a pas encore atteint les 16 pas requis
     else if (!isLeft && rightStepCount_ < 16)
     {
-        rightAccumulator_ += force; // On ajoute la force à la somme totale droite
-        rightStepCount_++;          // On incrémente le compteur de pas droits
+        rightAccumulator_ += force;
+        rightStepCount_++;
     }
-
-    // Retourne TRUE uniquement quand on a validé exactement 16 pas à gauche ET 16 pas à droite.
     return (leftStepCount_ >= 16 && rightStepCount_ >= 16);
 }
 
-/**
- * @brief Calcule le pourcentage d'asymétrie entre le pied gauche et le pied droit.
- * @formula  (|Gauche - Droite| / Max(Gauche, Droite)) * 100
- */
+// Enregistre un pas en mode course dans le filtre de moyenne mobile
+void GaitAnalyzer::addRunningStep(float force, bool isLeft)
+{
+    if (isLeft)
+    {
+        leftBuffer_[leftBufferIdx_] = force;
+        leftBufferIdx_ = (leftBufferIdx_ + 1) % BUFFER_SIZE;
+        if (leftBufferCount_ < BUFFER_SIZE)
+            leftBufferCount_++;
+    }
+    else
+    {
+        rightBuffer_[rightBufferIdx_] = force;
+        rightBufferIdx_ = (rightBufferIdx_ + 1) % BUFFER_SIZE;
+        if (rightBufferCount_ < BUFFER_SIZE)
+            rightBufferCount_++;
+    }
+}
+
+float GaitAnalyzer::getLeftAverage() const
+{
+    if (leftBufferCount_ == 0)
+        return 0.0f;
+    float sum = 0.0f;
+    for (uint8_t i = 0; i < leftBufferCount_; ++i)
+        sum += leftBuffer_[i];
+    return sum / leftBufferCount_;
+}
+
+float GaitAnalyzer::getRightAverage() const
+{
+    if (rightBufferCount_ == 0)
+        return 0.0f;
+    float sum = 0.0f;
+    for (uint8_t i = 0; i < rightBufferCount_; ++i)
+        sum += rightBuffer_[i];
+    return sum / rightBufferCount_;
+}
+
 float GaitAnalyzer::computeAsymmetry(float left, float right) const
 {
-    // Sécurité : Si l'une des forces est inférieure à minForceThreshold_, on considère que ce n'est pas un pas
-    // de course valide (ex: piétinement à l'arrêt), donc on retourne 0% d'asymétrie.
     if (left < minForceThreshold_ || right < minForceThreshold_)
         return 0.0f;
-
-    // Calcul mathématique de la différence relative par rapport à la force maximale exercée
     return (std::abs(left - right) / std::max(left, right)) * 100.0f;
 }

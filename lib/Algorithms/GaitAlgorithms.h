@@ -22,16 +22,17 @@ class GaitAnalyzer
 private:
     uint8_t leftStepCount_ = 0, rightStepCount_ = 0;
     float leftAccumulator_ = 0.0f, rightAccumulator_ = 0.0f;
-    float minForceThreshold_ = 3.0f;
 
     // ─── NOUVEAU : HISTORIQUE POUR MOYENNE MOBILE EN COURSE ───
-    static const uint8_t BUFFER_SIZE = 8; // 8 pas par jambe = 16 pas au total
+    static const uint8_t BUFFER_SIZE = 8;
     float leftBuffer_[BUFFER_SIZE] = {0.0f};
     float rightBuffer_[BUFFER_SIZE] = {0.0f};
     uint8_t leftBufferIdx_ = 0;
     uint8_t rightBufferIdx_ = 0;
     uint8_t leftBufferCount_ = 0;
     uint8_t rightBufferCount_ = 0;
+
+    float minForceThreshold_; // <-- AJOUTEZ CETTE LIGNE ICI (Déclaration sans valeur magique)
 
 public:
     void reset();
@@ -44,6 +45,10 @@ public:
 
     float computeAsymmetry(float leftPeak, float rightPeak) const;
     uint8_t getTotalSteps() const { return leftStepCount_ + rightStepCount_; }
+
+    // Votre constructeur propre :
+    GaitAnalyzer(float minForceThreshold) : minForceThreshold_(minForceThreshold) {}
+
     void setMinForceThreshold(float threshold) { minForceThreshold_ = threshold; }
     float getMinForceThreshold() const { return minForceThreshold_; }
 };

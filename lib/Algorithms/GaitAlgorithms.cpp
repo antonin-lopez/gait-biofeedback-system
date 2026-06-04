@@ -16,7 +16,7 @@ std::optional<float> ImpactDetector::processSample(float currentSample, uint32_t
     // ÉTAPE 1 : Si on n'est pas encore dans un impact
     if (!isInsideImpact_)
     {
-        // Si l'accélération dépasse le seuil configuré (ex: 2.0G), l'impact commence !
+        // Si l'accélération dépasse le seuil configuré, l'impact commence !
         if (currentSample > thresholdG_)
         {
             isInsideImpact_ = true;       // On passe à l'état "en cours d'impact"

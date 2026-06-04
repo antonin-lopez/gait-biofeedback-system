@@ -18,7 +18,7 @@ volatile uint8_t rightBattery = 0;
 
 // ─── LOGIQUE ET ÉTATS ───
 SystemState currentState = SystemState::IDLE;
-GaitAnalyzer analyzer;
+GaitAnalyzer analyzer(DEFAULT_VALIDATION_THRESHOLD);
 float asymmetry = 0.0f;
 uint32_t lastDisplayTime = 0;
 
@@ -178,7 +178,6 @@ void setup()
     esp_now_init();
     esp_now_register_recv_cb(onDataReceived);
 
-    analyzer.setMinForceThreshold(DEFAULT_VALIDATION_THRESHOLD);
     transitionTo(SystemState::IDLE);
 }
 

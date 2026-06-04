@@ -32,7 +32,8 @@ private:
     uint8_t leftBufferCount_ = 0;
     uint8_t rightBufferCount_ = 0;
 
-    float minForceThreshold_; // <-- AJOUTEZ CETTE LIGNE ICI (Déclaration sans valeur magique)
+    float minForceThreshold_;
+    float personalizedAsymmetryThreshold_ = 10.0f; // Valeur par défaut, sera recalculée après calibration
 
 public:
     void reset();
@@ -51,4 +52,5 @@ public:
 
     void setMinForceThreshold(float threshold) { minForceThreshold_ = threshold; }
     float getMinForceThreshold() const { return minForceThreshold_; }
+    float getPersonalizedAsymmetryThreshold() const { return personalizedAsymmetryThreshold_; }
 };

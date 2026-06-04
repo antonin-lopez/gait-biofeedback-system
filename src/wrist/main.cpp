@@ -159,6 +159,7 @@ void transitionTo(SystemState newState)
         Hardware::beep(1000, 50);
         break;
     case SystemState::CALIBRATION:
+        analyzer.reset();
         Hardware::beep(1000, 50);
         delay(80);
         Hardware::beep(1000, 50);
@@ -241,12 +242,14 @@ void loop()
 
             asymmetry = analyzer.computeAsymmetry(avgLeft, avgRight);
 
-            if (currentState == SystemState::RUNNING_NORMAL && asymmetry > 10.0f)
+            // MODIFIER ICI : Remplacer 10.0f par le seuil dynamique personnalisé
+            if (currentState == SystemState::RUNNING_NORMAL && asymmetry > analyzer.getPersonalizedAsymmetryThreshold())
             {
                 transitionTo(SystemState::RUNNING_ALERT);
                 Hardware::beep(2000, 150);
             }
-            else if (currentState == SystemState::RUNNING_ALERT && asymmetry <= 10.0f)
+            // MODIFIER ICI : Remplacer 10.0f par le seuil dynamique personnalisé
+            else if (currentState == SystemState::RUNNING_ALERT && asymmetry <= analyzer.getPersonalizedAsymmetryThreshold())
             {
                 transitionTo(SystemState::RUNNING_NORMAL);
             }

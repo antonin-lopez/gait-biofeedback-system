@@ -47,7 +47,6 @@ void GaitAnalyzer::reset()
     leftStepCount_ = rightStepCount_ = 0;
     leftAccumulator_ = rightAccumulator_ = 0.0f;
 
-    // Réinitialisation des buffers de course
     leftBufferIdx_ = rightBufferIdx_ = 0;
     leftBufferCount_ = rightBufferCount_ = 0;
     for (uint8_t i = 0; i < BUFFER_SIZE; ++i)
@@ -55,6 +54,8 @@ void GaitAnalyzer::reset()
         leftBuffer_[i] = 0.0f;
         rightBuffer_[i] = 0.0f;
     }
+
+    personalizedAsymmetryThreshold_ = 10.0f; // Réinitialise le seuil personnalisé à la valeur par défaut (sera recalculée après calibration)
 }
 
 bool GaitAnalyzer::addCalibrationStep(float force, bool isLeft)
@@ -63,13 +64,33 @@ bool GaitAnalyzer::addCalibrationStep(float force, bool isLeft)
     {
         leftAccumulator_ += force;
         leftStepCount_++;
+        addRunningStep(force, isLeft); // <-- AJOUTER : Remplit le filtre de moyenne mobile en même temps
     }
     else if (!isLeft && rightStepCount_ < 16)
     {
         rightAccumulator_ += force;
         rightStepCount_++;
+        addRunningStep(force, isLeft); // <-- AJOUTER : Remplit le filtre de moyenne mobile en même temps
     }
-    return (leftStepCount_ >= 16 && rightStepCount_ >= 16);
+
+    // Si la calibration est terminée pour les deux côtés
+    if (leftStepCount_ >= 16 && rightStepCount_ >= 16)
+    {
+        // Calcul des forces moyennes de calibration
+        float avgLeftCalib = leftAccumulator_ / 16.0f;
+        float avgRightCalib = rightAccumulator_ / 16.0f;
+
+        // Calcul de l'asymétrie naturelle / de référence du coureur
+        float baselineAsymmetry = computeAsymmetry(avgLeftCalib, avgRightCalib);
+
+        // Seuil personnalisé = son asymétrie de base + une marge de tolérance de 5% d'écart supplémentaire
+        // (Tu peux ajuster le 5.0f selon la sensibilité désirée)
+        personalizedAsymmetryThreshold_ = baselineAsymmetry + 5.0f;
+
+        return true;
+    }
+
+    return false;
 }
 
 // Enregistre un pas en mode course dans le filtre de moyenne mobile

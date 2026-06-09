@@ -47,7 +47,10 @@ public:
     float getRightAverage() const;
 
     float computeAsymmetry(float leftPeak, float rightPeak) const;
+    
     uint8_t getTotalSteps() const { return leftStepCount_ + rightStepCount_; }
+    uint8_t getLeftStepCount() const { return leftStepCount_; }
+    uint8_t getRightStepCount() const { return rightStepCount_; }
 
     GaitAnalyzer(float minForceThreshold) : minForceThreshold_(minForceThreshold) {}
 

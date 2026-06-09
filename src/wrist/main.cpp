@@ -108,6 +108,10 @@ void updateDisplay(const char *bodyLeft, const char *bodyRight)
         title = "ALERTE ASYM!";
         bgColor = 0xFF0000;
         break;
+    case SystemState::CALIBRATION:
+        title = "CALIBRATION";
+        bgColor = 0x0000FF;
+        break;
     default:
         title = "COURSE";
         bgColor = 0x000000;
@@ -141,28 +145,53 @@ void onDataReceived(const uint8_t *mac, const uint8_t *data, int len)
     }
 }
 
+void enterCalibrationState()
+{
+    // 1. Réinitialisation de l'analyseur
+    analyzer.reset();
+
+    // 2. Préparation et rendu de la vue spécifique (Affichage scindé)
+    char strLeft[16];
+    char strRight[16];
+    snprintf(strLeft, sizeof(strLeft), "G: %d", GaitAnalyzer::CALIBRATION_STEPS_PER_SIDE);
+    snprintf(strRight, sizeof(strRight), "D: %d", GaitAnalyzer::CALIBRATION_STEPS_PER_SIDE);
+    updateDisplay(strLeft, strRight);
+
+    // 3. Signal sonore d'entrée de jeu
+    Hardware::beep(1000, 50);
+    delay(80);
+    Hardware::beep(1000, 50);
+}
+
 void transitionTo(SystemState newState)
 {
     currentState = newState;
-    updateDisplay();
 
+    // Un seul switch lisible regroupe toutes les actions d'entrée ("On Entry")
     switch (currentState)
     {
-    case SystemState::DIAGNOSTIC:
-        Hardware::beep(1000, 50);
-        break;
     case SystemState::CALIBRATION:
-        analyzer.reset();
-        Hardware::beep(1000, 50);
-        delay(80);
+        enterCalibrationState(); // Délégation complète des détails
+        break;
+
+    case SystemState::DIAGNOSTIC:
+        updateDisplay();
         Hardware::beep(1000, 50);
         break;
+
     case SystemState::RUNNING_NORMAL:
+        updateDisplay();
         Hardware::beep(1500, 400);
         break;
+
+    case SystemState::IDLE:
+    case SystemState::RUNNING_ALERT:
+    case SystemState::PAUSE:
     default:
+        updateDisplay(); // Comportement d'affichage générique par défaut
         break;
     }
+
     lastDisplayTime = millis();
 }
 
@@ -231,9 +260,18 @@ void loop()
             else if (currentState == SystemState::CALIBRATION && msg.peakForce >= analyzer.getMinForceThreshold())
             {
                 bool calibDone = analyzer.addCalibrationStep(msg.peakForce, msg.isLeft);
-                char str[16];
-                snprintf(str, sizeof(str), "PAS: %d/32", analyzer.getTotalSteps());
-                updateDisplay(str);
+
+                // ─── CALCUL DES PAS RESTANTS PAR CÔTÉ ───
+                int leftRemaining = GaitAnalyzer::CALIBRATION_STEPS_PER_SIDE - analyzer.getLeftStepCount();
+                int rightRemaining = GaitAnalyzer::CALIBRATION_STEPS_PER_SIDE - analyzer.getRightStepCount();
+
+                char strLeft[16];
+                char strRight[16];
+                snprintf(strLeft, sizeof(strLeft), "G: %d", leftRemaining);
+                snprintf(strRight, sizeof(strRight), "D: %d", rightRemaining);
+
+                // Utilisation de la surcharge d'affichage scindée (Gauche / Droite)
+                updateDisplay(strLeft, strRight);
 
                 if (calibDone)
                     transitionTo(SystemState::RUNNING_NORMAL);

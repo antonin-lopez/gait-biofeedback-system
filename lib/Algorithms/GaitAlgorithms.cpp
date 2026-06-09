@@ -67,7 +67,7 @@ bool GaitAnalyzer::addCalibrationStep(float force, bool isLeft)
         float avgRightCalib = rightAccumulator_ / static_cast<float>(CALIBRATION_STEPS_PER_SIDE);
 
         float baselineAsymmetry = computeAsymmetry(avgLeftCalib, avgRightCalib);
-        personalizedAsymmetryThreshold_ = baselineAsymmetry + 5.0f;
+        personalizedAsymmetryThreshold_ = baselineAsymmetry + 10.0f; // Marche à suivre : 10% au-dessus de l'asymétrie de base pour éviter les alertes sur des différences normales
 
         return true;
     }

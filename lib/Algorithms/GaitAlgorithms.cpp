@@ -2,43 +2,31 @@
 #include <algorithm>
 #include <cmath>
 
-/**
- * @brief Analyse l'accélération actuelle pour détecter un pas et isoler sa force maximale.
- * @return std::nullopt si le pas est en cours ou en cooldown, sinon retourne la force du pic (float).
- */
 std::optional<float> ImpactDetector::processSample(float currentSample, uint32_t nowMs)
 {
-    // SÉCURITÉ (Cooldown) : Si l'impact précédent s'est terminé il y a moins de 250 ms,
-    // on ignore l'échantillon pour éviter de détecter deux fois le même pas (rebonds).
     if (!isInsideImpact_ && (nowMs - lastImpactEndMs_) < 250)
         return std::nullopt;
 
-    // ÉTAPE 1 : Si on n'est pas encore dans un impact
     if (!isInsideImpact_)
     {
-        // Si l'accélération dépasse le seuil configuré, l'impact commence !
         if (currentSample > thresholdG_)
         {
-            isInsideImpact_ = true;       // On passe à l'état "en cours d'impact"
-            currentPeak_ = currentSample; // On initialise le pic avec la valeur actuelle
+            isInsideImpact_ = true;
+            currentPeak_ = currentSample;
         }
     }
-    // ÉTAPE 2 : Si on est déjà au milieu d'un impact
     else
     {
-        // On met à jour le pic maximal : on garde la plus grande valeur entre l'ancien pic et l'échantillon actuel
         currentPeak_ = std::max(currentPeak_, currentSample);
 
-        // Si l'accélération redescend en dessous du seuil, cela signifie que le pas est terminé
         if (currentSample <= thresholdG_)
         {
-            isInsideImpact_ = false;  // L'impact est fini
-            lastImpactEndMs_ = nowMs; // On enregistre l'heure de fin pour le cooldown
-            return currentPeak_;      // On RENVOIE le pic maximal mesuré pendant ce pas !
+            isInsideImpact_ = false;
+            lastImpactEndMs_ = nowMs;
+            return currentPeak_;
         }
     }
 
-    // Renvoie rien tant que le pas n'est pas complètement terminé et validé
     return std::nullopt;
 }
 
@@ -55,36 +43,30 @@ void GaitAnalyzer::reset()
         rightBuffer_[i] = 0.0f;
     }
 
-    personalizedAsymmetryThreshold_ = 10.0f; // Réinitialise le seuil personnalisé à la valeur par défaut (sera recalculée après calibration)
+    personalizedAsymmetryThreshold_ = 10.0f;
 }
 
 bool GaitAnalyzer::addCalibrationStep(float force, bool isLeft)
 {
-    if (isLeft && leftStepCount_ < 16)
+    if (isLeft && leftStepCount_ < CALIBRATION_STEPS_PER_SIDE)
     {
         leftAccumulator_ += force;
         leftStepCount_++;
-        addRunningStep(force, isLeft); // <-- AJOUTER : Remplit le filtre de moyenne mobile en même temps
+        addRunningStep(force, isLeft);
     }
-    else if (!isLeft && rightStepCount_ < 16)
+    else if (!isLeft && rightStepCount_ < CALIBRATION_STEPS_PER_SIDE)
     {
         rightAccumulator_ += force;
         rightStepCount_++;
-        addRunningStep(force, isLeft); // <-- AJOUTER : Remplit le filtre de moyenne mobile en même temps
+        addRunningStep(force, isLeft);
     }
 
-    // Si la calibration est terminée pour les deux côtés
-    if (leftStepCount_ >= 16 && rightStepCount_ >= 16)
+    if (leftStepCount_ >= CALIBRATION_STEPS_PER_SIDE && rightStepCount_ >= CALIBRATION_STEPS_PER_SIDE)
     {
-        // Calcul des forces moyennes de calibration
-        float avgLeftCalib = leftAccumulator_ / 16.0f;
-        float avgRightCalib = rightAccumulator_ / 16.0f;
+        float avgLeftCalib = leftAccumulator_ / static_cast<float>(CALIBRATION_STEPS_PER_SIDE);
+        float avgRightCalib = rightAccumulator_ / static_cast<float>(CALIBRATION_STEPS_PER_SIDE);
 
-        // Calcul de l'asymétrie naturelle / de référence du coureur
         float baselineAsymmetry = computeAsymmetry(avgLeftCalib, avgRightCalib);
-
-        // Seuil personnalisé = son asymétrie de base + une marge de tolérance de 5% d'écart supplémentaire
-        // (Tu peux ajuster le 5.0f selon la sensibilité désirée)
         personalizedAsymmetryThreshold_ = baselineAsymmetry + 5.0f;
 
         return true;
@@ -93,7 +75,6 @@ bool GaitAnalyzer::addCalibrationStep(float force, bool isLeft)
     return false;
 }
 
-// Enregistre un pas en mode course dans le filtre de moyenne mobile
 void GaitAnalyzer::addRunningStep(float force, bool isLeft)
 {
     if (isLeft)

@@ -5,16 +5,31 @@
 #include "Hardware.h"
 #include "GaitAlgorithms.h"
 
-// ─── VARIABLES GLOBALES ───
-volatile float leftForce = 0.0f, rightForce = 0.0f;
-volatile uint32_t leftImpactTime = 0, rightImpactTime = 0;
-volatile uint32_t leftHeartbeatTime = 0, rightHeartbeatTime = 0;
-volatile bool hasNewImpact = false;
-volatile float lastIncomingForce = 0.0f;
-volatile bool lastIncomingIsLeft = false;
+// ─── ARCHITECTURE DE DESIGN TRADITIONNELLE FREERTOS ───
+enum class EventType
+{
+    IMPACT,
+    HEARTBEAT
+};
 
-volatile uint8_t leftBattery = 0;
-volatile uint8_t rightBattery = 0;
+struct SystemEvent
+{
+    EventType type;
+    union
+    {
+        ImpactMessage impact;
+        HeartbeatMessage heartbeat;
+    } data;
+};
+
+// File d'attente pour le passage sécurisé des messages inter-threads
+QueueHandle_t eventQueue = nullptr;
+
+// ─── STOCKS SÉCURISÉS (Exclusivement modifiés dans le thread principal loop) ───
+float leftForce = 0.0f, rightForce = 0.0f;
+uint32_t leftHeartbeatTime = 0, rightHeartbeatTime = 0;
+uint8_t leftBattery = 0;
+uint8_t rightBattery = 0;
 
 // ─── LOGIQUE ET ÉTATS ───
 SystemState currentState = SystemState::IDLE;
@@ -29,7 +44,6 @@ void updateDisplay(const char *bodyCenter = nullptr)
     int leftBatParam = -2;
     int rightBatParam = -2;
 
-    // Gestion des batteries uniquement dans les états prévus
     if (currentState == SystemState::DIAGNOSTIC || currentState == SystemState::PAUSE)
     {
         leftBatParam = (now - leftHeartbeatTime < 1500) ? leftBattery : -1;
@@ -69,14 +83,12 @@ void updateDisplay(const char *bodyCenter = nullptr)
         break;
     }
 
-    // Si on force un texte au centre (ex: "GAUCHE" ou "PAS: 14/32")
     if (bodyCenter != nullptr)
     {
         centerData = bodyCenter;
     }
 
     Hardware::setBackgroundColor(bgColor);
-    // Appel automatique de la Surcharge 1 de la HAL (Centré)
     Hardware::display(title, centerData, leftBatParam, rightBatParam);
 }
 
@@ -103,55 +115,36 @@ void updateDisplay(const char *bodyLeft, const char *bodyRight)
     }
 
     Hardware::setBackgroundColor(bgColor);
-    // Appel automatique de la Surcharge 2 de la HAL (Scindé gauche/droite)
-    // Les batteries restent à -2 par défaut (bandeau inférieur masqué en course)
     Hardware::display(title, bodyLeft, bodyRight);
 }
 
-// ─── CALLBACK RECEPTION SANS FIL ───
+// ─── CALLBACK RECEPTION SANS FIL (Thread Réseau - ISR/Asynchrones) ───
 void onDataReceived(const uint8_t *mac, const uint8_t *data, int len)
 {
+    if (eventQueue == nullptr)
+        return;
+
+    SystemEvent event;
+
     if (len == sizeof(ImpactMessage))
     {
-        ImpactMessage msg;
-        memcpy(&msg, data, sizeof(msg));
-
-        lastIncomingForce = msg.peakForce;
-        lastIncomingIsLeft = msg.isLeft;
-        hasNewImpact = true;
-
-        if (msg.isLeft)
-        {
-            leftForce = msg.peakForce;
-            leftImpactTime = millis();
-        }
-        else
-        {
-            rightForce = msg.peakForce;
-            rightImpactTime = millis();
-        }
+        event.type = EventType::IMPACT;
+        memcpy(&event.data.impact, data, sizeof(ImpactMessage));
+        // Envoi non bloquant (délai 0) pour ne pas figer la pile réseau ESP-NOW
+        xQueueSend(eventQueue, &event, 0);
     }
     else if (len == sizeof(HeartbeatMessage))
     {
-        HeartbeatMessage hb;
-        memcpy(&hb, data, sizeof(hb));
-        if (hb.role == DeviceRole::ANKLE_LEFT)
-        {
-            leftHeartbeatTime = millis();
-            leftBattery = hb.batteryLevel;
-        }
-        if (hb.role == DeviceRole::ANKLE_RIGHT)
-        {
-            rightHeartbeatTime = millis();
-            rightBattery = hb.batteryLevel;
-        }
+        event.type = EventType::HEARTBEAT;
+        memcpy(&event.data.heartbeat, data, sizeof(HeartbeatMessage));
+        xQueueSend(eventQueue, &event, 0);
     }
 }
 
 void transitionTo(SystemState newState)
 {
     currentState = newState;
-    updateDisplay(); // Appelle par défaut la version centrée (Surcharge 1)
+    updateDisplay();
 
     switch (currentState)
     {
@@ -167,6 +160,8 @@ void transitionTo(SystemState newState)
     case SystemState::RUNNING_NORMAL:
         Hardware::beep(1500, 400);
         break;
+    default:
+        break;
     }
     lastDisplayTime = millis();
 }
@@ -175,6 +170,15 @@ void setup()
 {
     Serial.begin(115200);
     Hardware::init();
+
+    // Initialisation de la Queue capable de stocker 20 événements simultanés
+    eventQueue = xQueueCreate(20, sizeof(SystemEvent));
+    if (eventQueue == nullptr)
+    {
+        Serial.println("Erreur critique: Impossible de créer la Queue FreeRTOS");
+        esp_restart();
+    }
+
     WiFi.mode(WIFI_STA);
     esp_now_init();
     esp_now_register_recv_cb(onDataReceived);
@@ -193,38 +197,65 @@ void loop()
     bool refreshDue = (now - lastDisplayTime >= 500);
     bool runningImpactProcessed = false;
 
-    // ─── ÉTAPE 1 : TRAITEMENT CENTRALISÉ DES NOUVEAUX IMPACTS ───
-    if (hasNewImpact)
+    // ÉTAPE 1 : DÉPILAGE ET TRAITEMENT SYNCHRONE DES ÉVÉNEMENTS (Zéro Concurrence/Race Condition)
+    SystemEvent event;
+    while (xQueueReceive(eventQueue, &event, 0) == pdTRUE)
     {
-        hasNewImpact = false;
+        if (event.type == EventType::IMPACT)
+        {
+            ImpactMessage msg = event.data.impact;
 
-        if (currentState == SystemState::RUNNING_NORMAL || currentState == SystemState::RUNNING_ALERT)
-        {
-            analyzer.addRunningStep(lastIncomingForce, lastIncomingIsLeft);
-            runningImpactProcessed = true;
-        }
-        else if (currentState == SystemState::DIAGNOSTIC)
-        {
-            Hardware::beep(1000, 50);
-            const char *impactSide = lastIncomingIsLeft ? "GAUCHE" : "DROITE";
-            updateDisplay(impactSide); // Appelle Surcharge 1
-            delay(200);
-            updateDisplay(); // Appelle Surcharge 1
-            lastDisplayTime = now;
-        }
-        else if (currentState == SystemState::CALIBRATION && lastIncomingForce >= analyzer.getMinForceThreshold())
-        {
-            bool calibDone = analyzer.addCalibrationStep(lastIncomingForce, lastIncomingIsLeft);
-            char str[16];
-            sprintf(str, "PAS: %d/32", analyzer.getTotalSteps());
-            updateDisplay(str); // Appelle Surcharge 1
+            if (msg.isLeft)
+            {
+                leftForce = msg.peakForce;
+            }
+            else
+            {
+                rightForce = msg.peakForce;
+            }
 
-            if (calibDone)
-                transitionTo(SystemState::RUNNING_NORMAL);
+            if (currentState == SystemState::RUNNING_NORMAL || currentState == SystemState::RUNNING_ALERT)
+            {
+                analyzer.addRunningStep(msg.peakForce, msg.isLeft);
+                runningImpactProcessed = true;
+            }
+            else if (currentState == SystemState::DIAGNOSTIC)
+            {
+                Hardware::beep(1000, 50);
+                const char *impactSide = msg.isLeft ? "GAUCHE" : "DROITE";
+                updateDisplay(impactSide);
+                delay(200);
+                updateDisplay();
+                lastDisplayTime = now;
+            }
+            else if (currentState == SystemState::CALIBRATION && msg.peakForce >= analyzer.getMinForceThreshold())
+            {
+                bool calibDone = analyzer.addCalibrationStep(msg.peakForce, msg.isLeft);
+                char str[16];
+                snprintf(str, sizeof(str), "PAS: %d/32", analyzer.getTotalSteps());
+                updateDisplay(str);
+
+                if (calibDone)
+                    transitionTo(SystemState::RUNNING_NORMAL);
+            }
+        }
+        else if (event.type == EventType::HEARTBEAT)
+        {
+            HeartbeatMessage hb = event.data.heartbeat;
+            if (hb.role == DeviceRole::ANKLE_LEFT)
+            {
+                leftHeartbeatTime = millis();
+                leftBattery = hb.batteryLevel;
+            }
+            else if (hb.role == DeviceRole::ANKLE_RIGHT)
+            {
+                rightHeartbeatTime = millis();
+                rightBattery = hb.batteryLevel;
+            }
         }
     }
 
-    // ─── ÉTAPE 2 : CALCULS ET AFFICHAGE EN TEMPS RÉEL DE LA COURSE ───
+    // ÉTAPE 2 : CALCULS ET AFFICHAGE EN TEMPS RÉEL DE LA COURSE
     if (currentState == SystemState::RUNNING_NORMAL || currentState == SystemState::RUNNING_ALERT)
     {
         if (!anklesConnected)
@@ -242,13 +273,11 @@ void loop()
 
             asymmetry = analyzer.computeAsymmetry(avgLeft, avgRight);
 
-            // MODIFIER ICI : Remplacer 10.0f par le seuil dynamique personnalisé
             if (currentState == SystemState::RUNNING_NORMAL && asymmetry > analyzer.getPersonalizedAsymmetryThreshold())
             {
                 transitionTo(SystemState::RUNNING_ALERT);
                 Hardware::beep(2000, 150);
             }
-            // MODIFIER ICI : Remplacer 10.0f par le seuil dynamique personnalisé
             else if (currentState == SystemState::RUNNING_ALERT && asymmetry <= analyzer.getPersonalizedAsymmetryThreshold())
             {
                 transitionTo(SystemState::RUNNING_NORMAL);
@@ -261,8 +290,6 @@ void loop()
                 snprintf(strLeft, sizeof(strLeft), "G: %.0f%%", pctLeft);
                 snprintf(strRight, sizeof(strRight), "D: %.0f%%", pctRight);
 
-                // AVANT : updateDisplay(nullptr, strLeft, strRight);
-                // MAINTENANT : L'appel est direct, propre et sans placeholder grâce à la surcharge !
                 updateDisplay(strLeft, strRight);
                 lastDisplayTime = now;
             }
@@ -272,12 +299,12 @@ void loop()
     {
         if (refreshDue)
         {
-            updateDisplay(); // Appelle Surcharge 1
+            updateDisplay();
             lastDisplayTime = now;
         }
     }
 
-    // ─── ÉTAPE 3 : MACHINE D'ÉTAT ───
+    // ÉTAPE 3 : MACHINE D'ÉTAT (Boutons physiques)
     switch (currentState)
     {
     case SystemState::IDLE:
@@ -311,5 +338,5 @@ void loop()
         break;
     }
 
-    delay(20);
+    delay(10); // Laisse s'exécuter l'ordonnanceur FreeRTOS de l'ESP32
 }
